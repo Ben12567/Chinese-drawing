@@ -1,0 +1,7 @@
+Method,FID,KID,CLIPScore,ImageReward,LPIPS_Diversity,StructureConsistency,StyleAccuracy,Notes
+SD1.5+LoRA,,,,,,,,
+SDXL+LoRA,,,,,,,,
+CCLAP,,,,,,,,
+SDXL+ControlNet(lineart),,,,,,,,
+SDXL+T2I-Adapter(depth/lineart),,,,,,,,
+Ours(SDXL+LoRA+HierarchicalAdapter+IPAdapter),,,,,,,,

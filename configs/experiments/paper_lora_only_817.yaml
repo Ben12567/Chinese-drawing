@@ -1,0 +1,76 @@
+project:
+  name: clpgen-paper-lora-only-817
+  seed: 42
+  output_root: outputs/paper_suite_v6/paper_lora_only_817
+
+dataset:
+  manifest_path: data/processed/clp4k_v6_union_en/manifest.jsonl
+  split_dir: data/processed/clp4k_v6_union_en/splits
+  train_split: train.txt
+  val_split: val.txt
+  test_split: test.txt
+  image_size: 768
+  prompt_mode_train: short
+  prompt_mode_eval: structured
+  structure_channels_active:
+    - lineart
+    - quantized_depth
+    - blank_space_mask
+    - salient_composition_mask
+  style_reference_mode: same_style_pool
+
+model:
+  base_model: stabilityai/stable-diffusion-xl-base-1.0
+  pretrained_vae:
+  variant: fp16
+  use_safetensors: true
+  local_files_only: false
+  resolution_train: 768
+  resolution_infer: 1024
+  lora:
+    rank: 8
+    alpha: 8
+    unet_target_modules: [to_q, to_k, to_v, to_out.0]
+    text_encoder_target_modules: [q_proj, k_proj, v_proj, out_proj]
+    train_text_encoder: false
+    weights_path:
+  hierarchical_adapter:
+    enabled: false
+    in_channels: 4
+    base_channels: 32
+    token_dim: 256
+    levels: 4
+    pooled_sizes: [12, 6, 3, 2]
+    weights_path:
+  style_reference:
+    enabled: false
+    encoder_name: openai/clip-vit-large-patch14
+    merge_mode: add
+    ip_adapter_repo: h94/IP-Adapter
+    ip_adapter_subfolder: sdxl_models
+    ip_adapter_weight_name: ip-adapter_sdxl.bin
+    ip_adapter_image_encoder_folder:
+
+training:
+  batch_size: 1
+  grad_accum_steps: 4
+  learning_rate: 5.0e-5
+  adapter_learning_rate: 2.0e-5
+  num_epochs: 12
+  max_train_steps: 500
+  warmup_steps: 50
+  mixed_precision: bf16
+  checkpoint_every: 250
+  gradient_checkpointing: true
+  max_grad_norm: 1.0
+  num_workers: 0
+  save_total_limit: 2
+
+inference:
+  num_inference_steps: 30
+  guidance_scale: 7.5
+  adapter_conditioning_scale: 0.0
+  style_conditioning_scale: 0.0
+
+evaluation:
+  metrics: [fid, kid, clipscore, image_reward, pickscore, hpsv2, lpips_diversity, structure_consistency, style_accuracy]

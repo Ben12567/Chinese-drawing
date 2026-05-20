@@ -1,0 +1,9 @@
+Ablation,FID,KID,CLIPScore,StructureConsistency,StyleAccuracy,ExpertOverall,Notes
+Full model,,,,,,,
+No structure map,,,,,,,
+Lineart only,,,,,,,
+Lineart+depth,,,,,,,
+No style reference,,,,,,,
+Short prompt,,,,,,,
+Dense prompt,,,,,,,
+U-Net only LoRA,,,,,,,
