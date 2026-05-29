@@ -23,6 +23,8 @@ def main(
     config.raw.setdefault("model", {}).setdefault("hierarchical_adapter", {})["weights_path"] = str(
         Path(checkpoint_dir) / "structure_adapter.pt"
     )
+    if style_reference is None:
+        config.raw.setdefault("model", {}).setdefault("style_reference", {})["enabled"] = False
 
     pipeline = LandscapeGenerationPipeline(config)
     structure_image = Image.open(structure_map).convert("RGBA")
