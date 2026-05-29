@@ -98,6 +98,26 @@ Recommended caption:
 
 `Fidelity-style trade-off across methods. The x-axis is inverted so points further right indicate lower FID. Marker size encodes LPIPS diversity.`
 
+### Figure 4: Main Visual Comparison
+
+Files:
+
+`reports/final_results/figures/figure4_main_visual_comparison.png`
+
+`reports/final_results/figures/figure4_main_visual_comparison.pdf`
+
+Use in:
+
+`Experiments -> Qualitative Comparison`
+
+Purpose:
+
+Compares `LoRA-only`, `ControlNet`, `IP-Adapter only`, and the proposed method under matched test-set prompts and structure conditions. The figure emphasizes the intended paper claim: the proposed method gives the most balanced structure-style result, while single-branch baselines tend to show weak layout, rigid contours, or style/layout drift.
+
+Recommended caption:
+
+`Qualitative comparison under matched prompts and structure conditions. LoRA-only captures partial domain appearance but shows weak layout control; ControlNet follows structure more strongly but often produces rigid contours; IP-Adapter only transfers style cues but may drift in spatial composition; the proposed method better balances hierarchy, blank-space organization, brush-and-ink coherence, and style fidelity.`
+
 ## Generated Tables
 
 Generated tables are available under:
@@ -140,7 +160,7 @@ This is sample-level significance on the test split, not training-seed-level sig
 
 1. Method framework figure
 2. Hierarchical structure representation figure
-3. Main visual comparison figure
+3. `figure4_main_visual_comparison`
 4. `fig_main_fidelity`
 5. `fig_metric_profile`
 6. `fig_ours_vs_lora_gains`
