@@ -138,6 +138,46 @@ Recommended caption:
 
 `Structure controllability visualization under a unified structured prompt. Only the input structure condition changes across rows. The proposed method adapts the generated landscape composition to different blank-space layouts, mountain distributions, and foreground arrangements while preserving the ink-wash domain appearance.`
 
+### Figure 6: Quantitative Results Dashboard
+
+Files:
+
+`reports/final_results/figures/figure6_quantitative_results_dashboard.png`
+
+`reports/final_results/figures/figure6_quantitative_results_dashboard.pdf`
+
+Use in:
+
+`Experiments -> Main Quantitative Results`
+
+Purpose:
+
+Provides a compact visual summary of the main quantitative evidence. Panels (a) and (b) show the raw FID/KID results with standard deviations where available. Panels (c) and (d) use direction-aware min-max normalization to compare preference, diversity, style, and structure metrics that have different numerical scales.
+
+Recommended caption:
+
+`Quantitative evaluation on the Chinese landscape painting benchmark. The proposed method achieves the strongest target-domain distribution fidelity in terms of FID and KID, while IP-Adapter-only remains stronger on general preference-oriented metrics. Direction-aware normalized panels summarize metric groups with different numerical scales.`
+
+### Figure 7: Trade-off and Significance Evidence
+
+Files:
+
+`reports/final_results/figures/figure7_tradeoff_and_significance.png`
+
+`reports/final_results/figures/figure7_tradeoff_and_significance.pdf`
+
+Use in:
+
+`Experiments -> Statistical Analysis and Discussion`
+
+Purpose:
+
+Visualizes the fidelity-style trade-off across methods and the paired Wilcoxon significance results between the proposed method and LoRA-only. This figure supports the paper's main interpretation: the method improves target-domain fidelity and style/structure controllability, but should not be claimed as universally superior on every semantic preference metric.
+
+Recommended caption:
+
+`Trade-off and significance analysis. The proposed method occupies the best fidelity-style region with low FID and high style accuracy. Paired Wilcoxon tests over 83 test samples show significant improvements over LoRA-only on PickScore, HPSv2, style correctness, edge consistency, and blank-space IoU, while CLIPScore and Blank SSIM are not significant.`
+
 ## Generated Tables
 
 Generated tables are available under:
@@ -182,12 +222,14 @@ This is sample-level significance on the test split, not training-seed-level sig
 2. Hierarchical structure representation figure
 3. `figure4_main_visual_comparison`
 4. `figure5_structure_controllability`
-5. `fig_main_fidelity`
-6. `fig_metric_profile`
-7. `fig_ours_vs_lora_gains`
-8. `fig_significance_ours_vs_lora`
-9. `fig_fidelity_style_tradeoff`
-10. Failure cases figure
+5. `figure6_quantitative_results_dashboard`
+6. `figure7_tradeoff_and_significance`
+7. `fig_main_fidelity`
+8. `fig_metric_profile`
+9. `fig_ours_vs_lora_gains`
+10. `fig_significance_ours_vs_lora`
+11. `fig_fidelity_style_tradeoff`
+12. Failure cases figure
 
 ## Writing Boundary
 
