@@ -238,9 +238,11 @@
 - IP-Adapter only 风格接近但章法不稳
 - Ours 在层次、留白和风格上更平衡
 
-#### 5.4 Ablation Study
+#### 5.4 Optional Ablation Study
 
-建议至少列这些：
+当前公开结果快照不支持把 ablation 写成最终已完成实验。旧目录中存在小规模中间消融结果，但它们不属于 `paper_suite_strong` 最终协议，也没有进入 `reports/final_results`。
+
+如果后续补跑，可列这些：
 
 - full model
 - without structure
@@ -249,7 +251,7 @@
 - short prompt / structured prompt / dense prompt
 - lineart only / lineart + depth / full four-channel structure
 
-如果其中一些还没最终跑齐，正文中只放已跑齐的，没跑齐的放 future work 或不放。
+正式投稿稿件中，除非重新按 `817` 数据集和统一协议补齐，否则不要把 ablation 作为已完成结果报告。可在 Discussion 中写成后续补充实验计划，或仅在方法解释中定性说明模块作用。
 
 #### 5.5 Control Analysis
 
@@ -355,9 +357,9 @@
 - same structure, different style
 - same style, different prompt
 
-### Figure 6: Ablation Visualization
+### Figure 6: Optional Ablation Visualization
 
-展示去掉结构、去掉风格、完整模型的差异。
+只有在重新补齐统一协议下的 ablation 后再使用。当前最终结果包不应放 ablation 可视化作为已完成实验。
 
 ### Figure 7: Failure Cases
 
@@ -410,9 +412,9 @@
 
 正文里重点讲 `ours vs lora-only`。
 
-### Table 4: Ablation Study
+### Table 4: Optional Ablation Study
 
-如果实验齐全，放：
+当前最终结果包不包含正式 ablation 表。若后续补齐，可放：
 
 - full
 - no structure
@@ -441,6 +443,25 @@
 - dataset construction scripts released
 
 这张表对应用型顶刊很有帮助。
+
+## 当前可正式报告的实验
+
+当前 `reports/final_results` 中可直接用于论文的实验包括：
+
+- 主定量对比：`Ours`, `LoRA-only`, `ControlNet`, `IP-Adapter only`
+- 多训练种子结果：`Ours` 和 `LoRA-only` 各 `3` 个 training seeds
+- 显著性检验：`Ours` 分别对比 `LoRA-only`, `ControlNet`, `IP-Adapter only`
+- 通用 benchmark caveat：`TIFA subset`, `T2I-CompBench non-spatial`
+- 复现实验协议：配置、脚本、固定 seeds、结果快照
+
+当前不应写成已完成正式实验的内容：
+
+- expert evaluation
+- full ablation study
+- ImageReward comparison
+- GenEval official result
+
+`ImageReward` 在最终 CSV 中为空值，因此正式表格中应删除该列，或在附录中说明该指标因环境兼容问题未报告。
 
 ## 当前结果如何支撑贡献
 
