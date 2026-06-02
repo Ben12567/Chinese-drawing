@@ -9,6 +9,23 @@
 - `figures/figure5_structure_controllability.pdf`: Figure 5 结构可控图。
 - `figures/figure6_quantitative_summary.pdf`: 定量结果总览图。
 - `figures/figure7_tradeoff_and_significance.pdf`: trade-off 与显著性图。
+- `editable_figures_4_5.pptx`: Figure 4 和 Figure 5 的 PowerPoint 可编辑版本。
+- `ppt_previews/`: PowerPoint 实际渲染后的 PNG 预览。
+
+## 可编辑 PPT 图
+
+`editable_figures_4_5.pptx` 包含两页：
+
+- 第 1 页：Figure 4 主视觉对比图。
+- 第 2 页：Figure 5 结构可控性图。
+
+PPT 中的列标题、prompt、短标签、边框、虚线框和注释标签均为可编辑 PowerPoint 元素。山水画生成结果作为原始图像嵌入，没有删除或修改画作内部的题跋、印章和模型生成内容。
+
+重新生成 PPT：
+
+```powershell
+python scripts/make_editable_ppt_figures.py
+```
 
 ## 需要你粘入的内容
 
