@@ -1,0 +1,19 @@
+\begin{table*}[t]
+\centering
+\small
+\caption{\textbf{Paired significance analysis.} Per-sample comparison between the proposed method and LoRA-only on the 83-image test split.}
+\label{tab:significance-ours-vs-lora}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Metric} & \textbf{N} & \textbf{Ours} & \textbf{LoRA-only} & \textbf{Paired t-test} & \textbf{Wilcoxon} \\
+\midrule
+CLIPScore & 83 & 0.3280 & 0.3275 & 8.89e-01 & 8.45e-02 \\
+PickScore & 83 & 19.6669 & 19.3786 & 1.04e-04 & 4.56e-05 \\
+HPSv2 & 83 & 0.1631 & 0.1379 & 1.42e-18 & 8.63e-13 \\
+Style correct & 83 & 0.5542 & 0.3373 & 8.05e-06 & 2.21e-05 \\
+Edge consistency & 83 & 0.0340 & 0.0018 & 2.22e-25 & 3.80e-15 \\
+Blank IoU & 83 & 0.0189 & 0.0000 & 4.04e-02 & 2.22e-03 \\
+Blank SSIM & 83 & 0.7087 & 0.7126 & 1.50e-01 & 6.20e-02 \\
+\bottomrule
+\end{tabular}
+\end{table*}

@@ -1,249 +1,64 @@
 # Paper Figure and Table Index
 
-This document maps the generated figures and tables to the paper narrative.
+This index maps the current reproducible outputs to the paper narrative. It separates main-text evidence from appendix-only evidence.
 
-## Generated Figures
+## Main Figure Set
 
-All generated figures are available as both `.png` and `.pdf` under:
+1. Figure 1: Motivation and task formulation.
+   - File: `paper/editable_figure1_motivation_overview.pptx`
+   - Use: Introduction.
 
-`reports/final_results/figures`
+2. Figure 2: Method framework.
+   - Status: keep the current framework diagram or redraw as editable PPT.
+   - Use: Method.
 
-### Figure A: Main Fidelity Comparison
+3. Figure 3: Dataset and structural annotation overview.
+   - Files: `reports/final_results/figures/figure3_dataset_and_structure_overview.png`, `reports/final_results/figures/figure3_dataset_and_structure_overview.pdf`
+   - Use: Dataset and experimental protocol.
 
-File:
+4. Figure 4: Main qualitative comparison.
+   - Files: `reports/final_results/figures/figure4_main_visual_comparison.png`, `reports/final_results/figures/figure4_main_visual_comparison.pdf`
+   - Editable PPT: `paper/editable_figures_4_5.pptx`
+   - Use: Qualitative results.
 
-`reports/final_results/figures/fig_main_fidelity.pdf`
+5. Figure 5: Structure controllability visualization.
+   - Files: `reports/final_results/figures/figure5_structure_controllability.png`, `reports/final_results/figures/figure5_structure_controllability.pdf`
+   - Editable PPT: `paper/editable_figures_4_5.pptx`
+   - Use: Controllability analysis.
 
-Use in:
+6. Figure 6: Quantitative results dashboard.
+   - Files: `reports/final_results/figures/figure6_quantitative_results_dashboard.png`, `reports/final_results/figures/figure6_quantitative_results_dashboard.pdf`
+   - Use: Main quantitative results.
 
-`Experiments -> Main Quantitative Results`
+7. Figure 7: Fidelity-style trade-off and significance.
+   - Files: `reports/final_results/figures/figure7_tradeoff_and_significance.png`, `reports/final_results/figures/figure7_tradeoff_and_significance.pdf`
+   - Use: Statistical analysis and discussion.
 
-Purpose:
+8. Figure 8: Representative limitations and failure cases.
+   - Files: `reports/final_results/figures/figure8_failure_cases.png`, `reports/final_results/figures/figure8_failure_cases.pdf`
+   - Use: Discussion or limitations.
 
-Shows that the proposed method has the best in-domain distribution fidelity under `FID` and `KID`.
+## Appendix Figure
 
-Recommended caption:
+- Figure 9: Pilot ablation and general benchmark boundary.
+  - Files: `reports/final_results/figures/figure9_ablation_and_generalization.png`, `reports/final_results/figures/figure9_ablation_and_generalization.pdf`
+  - Use only as appendix/supporting evidence because the ablation part comes from an earlier protocol.
 
-`Distribution fidelity comparison on the Chinese landscape painting benchmark. Lower FID and KID indicate better alignment with the target painting distribution.`
+## Main Table Set
 
-### Figure B: Direction-Aware Metric Profile
+All generated LaTeX tables are under `paper/tables`.
 
-File:
+1. `table1_dataset_overview.tex`: dataset size, split, source, painter, and resolution statistics.
+2. `table2_dataset_style_distribution.tex`: long-tailed style-label distribution.
+3. `table3_experimental_protocol.tex`: training/evaluation protocol and sample counts.
+4. `table4_method_configuration.tex`: compared method configuration.
+5. `table5_main_quantitative_results.tex`: FID, KID, CLIP, PickScore, HPSv2, and LPIPS.
+6. `table6_style_structure_results.tex`: style accuracy, edge consistency, Blank IoU, and Blank SSIM.
+7. `table7_significance_ours_vs_lora.tex`: paired significance analysis against LoRA-only.
+8. `table8_pilot_ablation_and_general_benchmark.tex`: pilot ablation plus general benchmark boundary.
 
-`reports/final_results/figures/fig_metric_profile.pdf`
+## Recommended Writing Boundary
 
-Use in:
+The current evidence supports claims about target-domain fidelity, style consistency, blank-space controllability, structure-style balance, and significant improvements over LoRA-only on selected sample-level metrics.
 
-`Experiments -> Overall Metric Profile`
-
-Purpose:
-
-Shows that the full method is not merely optimized for one score. It is strongest on domain fidelity, style consistency, and blank-space related control, while IP-Adapter and ControlNet have their own strengths.
-
-Recommended caption:
-
-`Direction-aware normalized metric profile. Each column is normalized so that higher values indicate better performance.`
-
-### Figure C: Ours vs LoRA Relative Gains
-
-File:
-
-`reports/final_results/figures/fig_ours_vs_lora_gains.pdf`
-
-Use in:
-
-`Experiments -> Effectiveness over LoRA Domain Adaptation`
-
-Purpose:
-
-Summarizes the most defensible main claim: the proposed method improves FID, KID, diversity, and style accuracy over `SDXL+LoRA`.
-
-Recommended caption:
-
-`Relative improvements of the proposed method over the LoRA-only baseline.`
-
-### Figure D: Significance Analysis
-
-File:
-
-`reports/final_results/figures/fig_significance_ours_vs_lora.pdf`
-
-Use in:
-
-`Experiments -> Statistical Analysis`
-
-Purpose:
-
-Shows which sample-level metrics have statistical support.
-
-Recommended caption:
-
-`Sample-level Wilcoxon significance test between the proposed method and SDXL+LoRA. The dashed line indicates p=0.05.`
-
-### Figure E: Fidelity-Style Trade-off
-
-File:
-
-`reports/final_results/figures/fig_fidelity_style_tradeoff.pdf`
-
-Use in:
-
-`Discussion -> Method Trade-off`
-
-Purpose:
-
-Shows that the proposed method obtains the strongest balance between low FID and high style accuracy.
-
-Recommended caption:
-
-`Fidelity-style trade-off across methods. The x-axis is inverted so points further right indicate lower FID. Marker size encodes LPIPS diversity.`
-
-### Figure 4: Main Visual Comparison
-
-Files:
-
-`reports/final_results/figures/figure4_main_visual_comparison.png`
-
-`reports/final_results/figures/figure4_main_visual_comparison.pdf`
-
-Use in:
-
-`Experiments -> Qualitative Comparison`
-
-Purpose:
-
-Compares `LoRA-only`, `ControlNet`, `IP-Adapter only`, and the proposed method under matched test-set prompts and structure conditions. The figure emphasizes the intended paper claim: the proposed method gives the most balanced structure-style result, while single-branch baselines tend to show weak layout, rigid contours, or style/layout drift.
-
-Recommended caption:
-
-`Qualitative comparison under matched prompts and structure conditions. LoRA-only captures partial domain appearance but shows weak layout control; ControlNet follows structure more strongly but often produces rigid contours; IP-Adapter only transfers style cues but may drift in spatial composition; the proposed method better balances hierarchy, blank-space organization, brush-and-ink coherence, and style fidelity.`
-
-### Figure 5: Structure Controllability Visualization
-
-Files:
-
-`reports/final_results/figures/figure5_structure_controllability.png`
-
-`reports/final_results/figures/figure5_structure_controllability.pdf`
-
-Use in:
-
-`Experiments -> Structure Controllability`
-
-Purpose:
-
-Shows four test-set cases generated by the proposed method under the same structured prompt and style label, while changing the input structure condition. The layout highlights how different structure maps correspond to changes in blank space, dominant mountain mass, open-water organization, and foreground placement.
-
-Recommended caption:
-
-`Structure controllability visualization under a unified structured prompt. Only the input structure condition changes across rows. The proposed method adapts the generated landscape composition to different blank-space layouts, mountain distributions, and foreground arrangements while preserving the ink-wash domain appearance.`
-
-### Figure 6: Quantitative Results Dashboard
-
-Files:
-
-`reports/final_results/figures/figure6_quantitative_results_dashboard.png`
-
-`reports/final_results/figures/figure6_quantitative_results_dashboard.pdf`
-
-Use in:
-
-`Experiments -> Main Quantitative Results`
-
-Purpose:
-
-Provides a compact visual summary of the main quantitative evidence. Panels (a) and (b) show the raw FID/KID results with standard deviations where available. Panels (c) and (d) use direction-aware min-max normalization to compare preference, diversity, style, and structure metrics that have different numerical scales.
-
-Recommended caption:
-
-`Quantitative evaluation on the Chinese landscape painting benchmark. The proposed method achieves the strongest target-domain distribution fidelity in terms of FID and KID, while IP-Adapter-only remains stronger on general preference-oriented metrics. Direction-aware normalized panels summarize metric groups with different numerical scales.`
-
-### Figure 7: Trade-off and Significance Evidence
-
-Files:
-
-`reports/final_results/figures/figure7_tradeoff_and_significance.png`
-
-`reports/final_results/figures/figure7_tradeoff_and_significance.pdf`
-
-Use in:
-
-`Experiments -> Statistical Analysis and Discussion`
-
-Purpose:
-
-Visualizes the fidelity-style trade-off across methods and the paired Wilcoxon significance results between the proposed method and LoRA-only. This figure supports the paper's main interpretation: the method improves target-domain fidelity and style/structure controllability, but should not be claimed as universally superior on every semantic preference metric.
-
-Recommended caption:
-
-`Trade-off and significance analysis. The proposed method occupies the best fidelity-style region with low FID and high style accuracy. Paired Wilcoxon tests over 83 test samples show significant improvements over LoRA-only on PickScore, HPSv2, style correctness, edge consistency, and blank-space IoU, while CLIPScore and Blank SSIM are not significant.`
-
-## Generated Tables
-
-Generated tables are available under:
-
-`reports/final_results/tables`
-
-### Table 1: Clean Main Results
-
-Files:
-
-`reports/final_results/tables/table_main_results_clean.csv`
-
-`reports/final_results/tables/table_main_results_clean.tex`
-
-Use in:
-
-`Experiments -> Main Quantitative Results`
-
-Important:
-
-This table intentionally excludes `ImageReward` because the final result files contain `NaN` for that metric.
-
-### Table 2: Significance Against LoRA
-
-Files:
-
-`reports/final_results/tables/table_significance_ours_vs_lora.csv`
-
-`reports/final_results/tables/table_significance_ours_vs_lora.tex`
-
-Use in:
-
-`Experiments -> Statistical Analysis`
-
-Important:
-
-This is sample-level significance on the test split, not training-seed-level significance.
-
-## Recommended Figure Order
-
-1. Method framework figure
-2. Hierarchical structure representation figure
-3. `figure4_main_visual_comparison`
-4. `figure5_structure_controllability`
-5. `figure6_quantitative_results_dashboard`
-6. `figure7_tradeoff_and_significance`
-7. `fig_main_fidelity`
-8. `fig_metric_profile`
-9. `fig_ours_vs_lora_gains`
-10. `fig_significance_ours_vs_lora`
-11. `fig_fidelity_style_tradeoff`
-12. Failure cases figure
-
-## Writing Boundary
-
-The generated figures support:
-
-- in-domain fidelity improvement
-- style consistency improvement
-- diversity improvement
-- sample-level significance over `SDXL+LoRA`
-- balanced trade-off compared with single-branch baselines
-
-The generated figures do not support:
-
-- completed expert evaluation
-- completed final ablation study
-- ImageReward comparison
-- universal semantic superiority on public compositional benchmarks
+Do not claim completed expert evaluation, valid ImageReward results, or a final full-protocol ablation study. The existing ablation should be described as pilot or moved to appendix unless rerun under the final 817-image protocol.

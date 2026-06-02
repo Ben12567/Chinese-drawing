@@ -1,0 +1,17 @@
+\begin{table*}[t]
+\centering
+\small
+\caption{\textbf{Pilot component ablation and general benchmark boundary.} The ablation rows are from an early protocol and should be interpreted as appendix evidence; the benchmark rows show that the method is not universally stronger on open-domain compositional tests.}
+\label{tab:pilot-ablation-general-benchmark}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Experiment} & \textbf{FID} & \textbf{KID} & \textbf{CLIP/TIFA} & \textbf{LPIPS/T2I} \\
+\midrule
+Full model (pilot) & 194.06 & 0.0572 & 0.2563 & 0.5394 \\
+w/o structure (pilot) & 195.85 & 0.0677 & 0.2617 & 0.5198 \\
+w/o style ref. (pilot) & 238.10 & 0.1905 & 0.2692 & 0.5078 \\
+LoRA-only general bench. & - & - & TIFA 0.7783 & T2I 0.3122 \\
+Ours general bench. & - & - & TIFA 0.7566 & T2I 0.3040 \\
+\bottomrule
+\end{tabular}
+\end{table*}

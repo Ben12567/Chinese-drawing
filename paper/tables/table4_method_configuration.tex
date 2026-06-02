@@ -1,0 +1,16 @@
+\begin{table}[t]
+\centering
+\small
+\caption{\textbf{Compared method configuration.} Condition branches enabled for each method.}
+\label{tab:method-configuration}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Method} & \textbf{LoRA} & \textbf{Structure control} & \textbf{Style reference} & \textbf{Runs} \\
+\midrule
+ControlNet & No & lineart ControlNet & No & 1 \\
+IP-Adapter only & No & No & IP-Adapter & 1 \\
+LoRA-only & Yes & No & No & 3 \\
+Ours & Yes & hierarchical adapter & IP-Adapter & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
