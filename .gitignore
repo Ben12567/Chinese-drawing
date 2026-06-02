@@ -9,6 +9,8 @@ __pycache__/
 .vscode/
 .DS_Store
 Thumbs.db
+~$*.pptx
+paper/ppt_assets/figure1/*_raw.png
 .env
 .venv/
 venv/

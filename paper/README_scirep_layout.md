@@ -67,3 +67,21 @@ pdflatex scirep_main_clean.tex
 ```
 
 如果使用 Overleaf，把 `scirep_main_clean.tex`、`figures/`、`wlscirep.cls` 和 `.bib` 一起上传即可。
+
+## Editable Figure 1 PPT
+
+`editable_figure1_motivation_overview.pptx` is the editable PowerPoint version of Figure 1.
+
+It redraws the motivation overview into three panels:
+
+- Panel A: Chinese landscape painting as a structured cultural visual language.
+- Panel B: limitations of generic diffusion models.
+- Panel C: the proposed culture-aware hierarchical diffusion framework.
+
+Panel titles, labels, arrows, warnings, check marks, boxes, and explanatory text are all editable PowerPoint elements. The painting and generated examples are embedded as image materials only; no external explanatory text is baked into the image background.
+
+Regenerate it with:
+
+```powershell
+python scripts/make_editable_ppt_figure1.py
+```
