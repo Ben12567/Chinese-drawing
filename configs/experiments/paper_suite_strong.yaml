@@ -1,0 +1,27 @@
+suite_root: outputs/paper_suite_strong
+split: test
+train_seeds:
+  - 42
+  - 52
+  - 62
+inference_seeds:
+  - 42
+  - 52
+  - 62
+configs:
+  - configs/experiments/paper_controlnet_817.yaml
+  - configs/experiments/paper_ip_adapter_only_817.yaml
+  - configs/experiments/paper_ours_817.yaml
+  - configs/experiments/paper_lora_only_817.yaml
+stage_existing:
+  - from: outputs/paper_suite_v6/paper_ours_817/evaluation_multiseed
+    to: paper_ours_817_seed42/evaluation_multiseed
+  - from: outputs/paper_suite_v6/paper_lora_only_817/evaluation_multiseed
+    to: paper_lora_only_817_seed42/evaluation_multiseed
+significance:
+  left: paper_ours_817_seed42/evaluation_multiseed/per_sample_metrics.csv
+  metrics: clipscore,pickscore,hpsv2,style_correct,edge_consistency,blank_space_iou,blank_space_ssim
+  comparisons:
+    lora: paper_lora_only_817_seed42/evaluation_multiseed/per_sample_metrics.csv
+    controlnet: paper_controlnet_817_seed42/evaluation_multiseed/per_sample_metrics.csv
+    ip_adapter_only: paper_ip_adapter_only_817_seed42/evaluation_multiseed/per_sample_metrics.csv

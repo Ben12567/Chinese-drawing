@@ -1,0 +1,50 @@
+{
+  "paper_ours_817": {
+    "method": "paper_ours_817",
+    "checkpoint_dir": "outputs\\paper_suite_v6\\paper_ours_817\\checkpoint-500",
+    "tifa_subset": {
+      "status": "completed",
+      "benchmark": "tifa_subset",
+      "limit": 256,
+      "tifa_average": 0.7565810383193196,
+      "tifa_stdev": 0.21193951642677747,
+      "result_path": "outputs\\benchmarks\\paper_suite_v6\\paper_ours_817\\tifa_subset\\tifa_compatible_result.json"
+    },
+    "t2i_compbench_non_spatial": {
+      "status": "completed",
+      "benchmark": "t2i_compbench_non_spatial",
+      "limit": 300,
+      "score_avg": 0.304031982421875,
+      "result_path": "outputs\\benchmarks\\paper_suite_v6\\paper_ours_817\\t2i_compbench_non_spatial\\annotation_clip\\score_avg.txt"
+    },
+    "geneval_official": {
+      "status": "skipped",
+      "reason": "mmdet/mmcv unavailable in current environment",
+      "detail": "No module named 'mmdet'"
+    }
+  },
+  "paper_lora_only_817": {
+    "method": "paper_lora_only_817",
+    "checkpoint_dir": "outputs\\paper_suite_v6\\paper_lora_only_817\\checkpoint-500",
+    "tifa_subset": {
+      "status": "completed",
+      "benchmark": "tifa_subset",
+      "limit": 256,
+      "tifa_average": 0.7782965298590299,
+      "tifa_stdev": 0.20485158115117744,
+      "result_path": "outputs\\benchmarks\\paper_suite_v6\\paper_lora_only_817\\tifa_subset\\tifa_compatible_result.json"
+    },
+    "t2i_compbench_non_spatial": {
+      "status": "completed",
+      "benchmark": "t2i_compbench_non_spatial",
+      "limit": 300,
+      "score_avg": 0.31220377604166666,
+      "result_path": "outputs\\benchmarks\\paper_suite_v6\\paper_lora_only_817\\t2i_compbench_non_spatial\\annotation_clip\\score_avg.txt"
+    },
+    "geneval_official": {
+      "status": "skipped",
+      "reason": "mmdet/mmcv unavailable in current environment",
+      "detail": "No module named 'mmdet'"
+    }
+  }
+}

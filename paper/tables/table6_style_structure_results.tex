@@ -1,0 +1,16 @@
+\begin{table}[t]
+\centering
+\small
+\caption{\textbf{Style and structure metrics.} Domain-specific evaluation of style labels, edge adherence, and blank-space organization.}
+\label{tab:style-structure-results}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Method} & \textbf{Style Acc.$\uparrow$} & \textbf{Edge Cons.$\uparrow$} & \textbf{Blank IoU$\uparrow$} & \textbf{Blank SSIM$\uparrow$} \\
+\midrule
+ControlNet & 0.4217 & 0.0685 & 0.0077 & 0.7031 \\
+IP-Adapter only & 0.5422 & 0.0383 & 0.0051 & 0.6998 \\
+LoRA-only & 0.3373 $\pm$ 0.0000 & 0.0015 $\pm$ 0.0005 & 0.0000 $\pm$ 0.0000 & 0.7126 $\pm$ 0.0000 \\
+Ours & 0.5783 $\pm$ 0.0197 & 0.0347 $\pm$ 0.0006 & 0.0140 $\pm$ 0.0039 & 0.7096 $\pm$ 0.0015 \\
+\bottomrule
+\end{tabular}
+\end{table}

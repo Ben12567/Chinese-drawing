@@ -1,0 +1,30 @@
+ablations:
+  - name: no_structure
+    use_hierarchical_adapter: false
+    use_style_reference: true
+    prompt_mode: structured
+  - name: lineart_only
+    structure_channels: [lineart]
+    use_style_reference: true
+    prompt_mode: structured
+  - name: lineart_depth
+    structure_channels: [lineart, quantized_depth]
+    use_style_reference: true
+    prompt_mode: structured
+  - name: no_style_reference
+    use_hierarchical_adapter: true
+    use_style_reference: false
+    prompt_mode: structured
+  - name: short_prompt
+    use_hierarchical_adapter: true
+    use_style_reference: true
+    prompt_mode: short
+  - name: dense_prompt
+    use_hierarchical_adapter: true
+    use_style_reference: true
+    prompt_mode: dense
+  - name: unet_only_lora
+    train_text_encoder: false
+    use_hierarchical_adapter: true
+    use_style_reference: true
+    prompt_mode: structured
