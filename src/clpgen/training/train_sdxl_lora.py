@@ -339,6 +339,13 @@ def train(config: ProjectConfig) -> None:
     image_size = config.get("dataset", "image_size", default=768)
     scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda" and dtype == torch.float16)
     optimizer.zero_grad(set_to_none=True)
+    # Per-optimizer-step training log (loss averaged over the accumulated micro-batches).
+    log_path = output_dir / "train_log.csv"
+    log_file = log_path.open("w", encoding="utf-8")
+    log_file.write("step,epoch,loss,lr_lora,lr_adapter
+")
+    accumulated_loss = 0.0
+    accumulated_count = 0
 
     for epoch in range(num_epochs):
         progress = tqdm(dataloader, desc=f"epoch {epoch + 1}/{num_epochs}")
@@ -395,6 +402,8 @@ def train(config: ProjectConfig) -> None:
                 scaler.scale(loss).backward()
             else:
                 loss.backward()
+            accumulated_loss += float(loss.detach().cpu()) * grad_accum_steps
+            accumulated_count += 1
 
             should_step = (step_in_epoch + 1) % grad_accum_steps == 0 or (step_in_epoch + 1) == len(dataloader)
             if should_step:
@@ -411,6 +420,15 @@ def train(config: ProjectConfig) -> None:
                     optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
                 global_step += 1
+                lr_adapter = param_groups[1]["lr"] if structure_adapter is not None else ""
+                log_file.write(
+                    f"{global_step},{epoch},{accumulated_loss / max(accumulated_count, 1):.6f},"
+                    f"{param_groups[0]['lr']},{lr_adapter}
+"
+                )
+                log_file.flush()
+                accumulated_loss = 0.0
+                accumulated_count = 0
 
             progress.set_postfix(loss=float(loss.detach().cpu() * grad_accum_steps), step=global_step)
 
@@ -420,6 +438,7 @@ def train(config: ProjectConfig) -> None:
         if max_train_steps is not None and global_step >= max_train_steps:
             break
 
+    log_file.close()
     save_checkpoint(config, pipeline, structure_adapter, output_dir, global_step or 0)
 
 

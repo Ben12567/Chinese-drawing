@@ -31,6 +31,7 @@ class LandscapeGenerationPipeline:
         self.weight_dtype = self._resolve_dtype()
         self.use_structure_adapter = config.get("model", "hierarchical_adapter", "enabled", default=True)
         self.use_controlnet = config.get("model", "controlnet", "enabled", default=False)
+        self.use_t2i_adapter = config.get("model", "t2i_adapter", "enabled", default=False)
         self.structure_channels_active = config.get("dataset", "structure_channels_active") or list(
             STRUCTURE_CHANNELS
         )
@@ -67,7 +68,14 @@ class LandscapeGenerationPipeline:
 
     def load(self) -> None:
         self._require_diffusers()
-        from diffusers import AutoencoderKL, ControlNetModel, StableDiffusionXLPipeline, StableDiffusionXLControlNetPipeline
+        from diffusers import (
+            AutoencoderKL,
+            ControlNetModel,
+            StableDiffusionXLAdapterPipeline,
+            StableDiffusionXLControlNetPipeline,
+            StableDiffusionXLPipeline,
+            T2IAdapter,
+        )
 
         base_model = self.config.get("model", "base_model")
         pretrained_vae = self.config.get("model", "pretrained_vae")
@@ -100,12 +108,22 @@ class LandscapeGenerationPipeline:
                 torch_dtype=self.weight_dtype,
                 local_files_only=local_files_only,
                 use_safetensors=use_safetensors,
+                variant=controlnet_cfg.get("variant"),
             )
             self.pipe = StableDiffusionXLControlNetPipeline.from_pretrained(
                 base_model,
                 controlnet=controlnet_model,
                 **pipe_kwargs,
             )
+        elif self.use_t2i_adapter:
+            t2i_cfg = self.config.get("model", "t2i_adapter", default={})
+            adapter_model = T2IAdapter.from_pretrained(
+                t2i_cfg.get("repo", "TencentARC/t2i-adapter-lineart-sdxl-1.0"),
+                torch_dtype=self.weight_dtype,
+                local_files_only=local_files_only,
+                variant=t2i_cfg.get("variant"),
+            )
+            self.pipe = StableDiffusionXLAdapterPipeline.from_pretrained(base_model, adapter=adapter_model, **pipe_kwargs)
         else:
             self.pipe = StableDiffusionXLPipeline.from_pretrained(base_model, **pipe_kwargs)
         self.pipe = self.pipe.to(self.device)
@@ -229,7 +247,7 @@ class LandscapeGenerationPipeline:
         return outputs["cross_attention_tokens"]
 
     def _prepare_control_image(self, structure_map: Image.Image | np.ndarray | None) -> Image.Image | None:
-        if structure_map is None or not self.use_controlnet:
+        if structure_map is None or not (self.use_controlnet or self.use_t2i_adapter):
             return None
         if isinstance(structure_map, Image.Image):
             array = np.asarray(structure_map.convert("RGBA"))
@@ -237,12 +255,17 @@ class LandscapeGenerationPipeline:
             array = structure_map
         if array.shape[-1] != 4:
             raise ValueError("ControlNet baseline expects a 4-channel structure map.")
-        control_channel_name = self.config.get("model", "controlnet", "channel", default="lineart")
+        branch = "controlnet" if self.use_controlnet else "t2i_adapter"
+        control_channel_name = self.config.get("model", branch, "channel", default="lineart")
         try:
             channel_index = STRUCTURE_CHANNELS.index(control_channel_name)
         except ValueError:
             channel_index = 0
         gray = array[..., channel_index].astype(np.uint8)
+        if control_channel_name == "lineart" and self.config.get("model", branch, "invert_lineart", default=True):
+            # The stored line-art channel is dark lines on a white background; Canny ControlNet and
+            # the line-art T2I-Adapter expect white lines on black (v6 passed it un-inverted).
+            gray = 255 - gray
         return Image.fromarray(gray, mode="L").convert("RGB")
 
     def _encode_prompt_with_structure(self, request: GenerationRequest) -> dict[str, torch.Tensor]:
@@ -305,12 +328,16 @@ class LandscapeGenerationPipeline:
         }
         control_image = self._prepare_control_image(request.structure_map)
         if control_image is not None:
-            pipe_kwargs["image"] = control_image
-            pipe_kwargs["controlnet_conditioning_scale"] = self.config.get(
-                "inference",
-                "controlnet_conditioning_scale",
-                default=0.8,
-            )
+            size = self.config.get("model", "resolution_infer", default=1024)
+            pipe_kwargs["image"] = control_image.resize((size, size))
+            if self.use_controlnet:
+                pipe_kwargs["controlnet_conditioning_scale"] = self.config.get(
+                    "inference", "controlnet_conditioning_scale", default=0.8
+                )
+            else:
+                pipe_kwargs["adapter_conditioning_scale"] = self.config.get(
+                    "inference", "t2i_adapter_conditioning_scale", default=0.8
+                )
         output = self.pipe(
             **pipe_kwargs,
         )

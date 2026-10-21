@@ -30,3 +30,5 @@ data/exports/
 data/interim/
 data/external/
 data/metadata/
+.venv/
+models/

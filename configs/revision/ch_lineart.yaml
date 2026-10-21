@@ -1,0 +1,76 @@
+project:
+  name: ch_lineart
+  seed: 42
+  output_root: outputs/revision/train/ch_lineart
+dataset:
+  manifest_path: data/processed/clp_v7/manifest.jsonl
+  split_dir: data/processed/clp_v7/splits
+  image_size: 768
+  prompt_mode_train: structured
+  prompt_mode_eval: structured
+  structure_channels_active:
+  - lineart
+model:
+  base_model: stabilityai/stable-diffusion-xl-base-1.0
+  variant: fp16
+  use_safetensors: true
+  local_files_only: false
+  resolution_train: 768
+  resolution_infer: 1024
+  lora:
+    rank: 8
+    alpha: 8
+    unet_target_modules:
+    - to_q
+    - to_k
+    - to_v
+    - to_out.0
+    train_text_encoder: false
+    weights_path: null
+  hierarchical_adapter:
+    enabled: true
+    in_channels: 4
+    base_channels: 32
+    token_dim: 256
+    levels: 4
+    pooled_sizes:
+    - 12
+    - 6
+    - 3
+    - 2
+    weights_path: null
+  controlnet:
+    enabled: false
+    repo: models/controlnet-canny-sdxl-1.0
+    channel: lineart
+    invert_lineart: true
+    variant: fp16
+  t2i_adapter:
+    enabled: false
+    repo: models/t2i-adapter-lineart-sdxl-1.0
+    channel: lineart
+    invert_lineart: true
+    variant: fp16
+  style_reference:
+    enabled: true
+    ip_adapter_repo: h94/IP-Adapter
+    ip_adapter_subfolder: sdxl_models
+    ip_adapter_weight_name: ip-adapter_sdxl.bin
+training:
+  batch_size: 1
+  grad_accum_steps: 4
+  learning_rate: 5.0e-05
+  adapter_learning_rate: 2.0e-05
+  num_epochs: 12
+  max_train_steps: 500
+  mixed_precision: bf16
+  checkpoint_every: 250
+  gradient_checkpointing: true
+  max_grad_norm: 1.0
+  num_workers: 0
+inference:
+  num_inference_steps: 30
+  guidance_scale: 7.5
+  style_conditioning_scale: 0.55
+  controlnet_conditioning_scale: 0.8
+  t2i_adapter_conditioning_scale: 0.8

@@ -4,12 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clpgen"
-version = "0.1.0"
+version = "0.2.0"
 description = "Research scaffold for high-fidelity controllable Chinese landscape painting generation."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-  { name = "Codex" }
+  { name = "You Wang" },
+  { name = "Xitao Wang" }
 ]
 dependencies = [
   "accelerate>=0.30.0",

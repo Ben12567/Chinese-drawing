@@ -54,3 +54,33 @@ def build_prompt_bundle(
 
 def bundle_to_dict(bundle: PromptBundle) -> dict[str, str]:
     return asdict(bundle)
+
+
+# v7: nine-field structured prompt. Eight content fields come from a vision-language model
+# (scripts/extract_prompt_fields.py); the style field comes from the metadata-derived label.
+STYLE_PHRASES = {
+    "ink_monochrome": "monochrome ink",
+    "ink_and_colour": "ink and colour",
+    "light_colour": "ink and light colour",
+    "mi_style": "Mi-family cloudy mountains",
+    "dong_yuan_style": "Dong Yuan manner",
+}
+
+
+def build_v7_prompts(fields: dict[str, str], style_label: str) -> PromptBundle:
+    style = STYLE_PHRASES.get(style_label, style_label.replace("_", " "))
+    structured = (
+        "Chinese landscape painting. "
+        f"Subject: {fields['subject']}; composition: {fields['composition']}; "
+        f"foreground: {fields['foreground']}; middle ground: {fields['midground']}; "
+        f"background: {fields['background']}; blank space: {fields['blank_space']}; "
+        f"brush and ink: {fields['brush_ink']}; atmosphere: {fields['atmosphere']}; style: {style}."
+    )
+    short = f"Chinese landscape painting, {fields['subject']}, {style}"
+    return PromptBundle(
+        short_zh=short,
+        structured_zh=structured,
+        structured_en=structured,
+        dense_zh=structured,
+        dense_en=structured,
+    )

@@ -58,6 +58,7 @@ class PaintingSample:
     quality_score: float = 0.0
     quality_flags: list[str] = field(default_factory=list)
     duplicate_group: str = ""
+    extra: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

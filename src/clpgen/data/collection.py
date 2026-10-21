@@ -9,11 +9,12 @@ import json
 import os
 import time
 from io import StringIO
+from urllib.parse import urlparse
 
 import requests
 
 
-USER_AGENT = "CLPGenDatasetBuilder/0.1 (+local research use)"
+USER_AGENT = "CLPGenDatasetBuilder/0.2 (research dataset builder; https://github.com/Ben12567/Chinese-drawing)"
 
 
 @dataclass
@@ -46,7 +47,7 @@ class CandidateRecord:
 class HTTPClient:
     def __init__(self, timeout: int = 30, sleep_seconds: float = 0.0, max_retries: int = 3) -> None:
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": USER_AGENT})
+        self.session.headers.update({"User-Agent": USER_AGENT, "AIC-User-Agent": USER_AGENT})
         self.timeout = timeout
         self.sleep_seconds = sleep_seconds
         self.max_retries = max_retries
@@ -56,15 +57,19 @@ class HTTPClient:
         for attempt in range(self.max_retries + 1):
             try:
                 response = self.session.get(url, params=params, timeout=self.timeout)
+                if response.status_code == 404:
+                    response.raise_for_status()  # not retried below
                 response.raise_for_status()
                 if self.sleep_seconds:
                     time.sleep(self.sleep_seconds)
                 return response.json()
             except requests.RequestException as exc:
                 last_error = exc
-                if attempt >= self.max_retries:
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                if attempt >= self.max_retries or status == 404:
                     raise
-                time.sleep(max(self.sleep_seconds, 0.5) * (attempt + 1))
+                backoff = 15.0 if status in (403, 429, 503) else max(self.sleep_seconds, 0.5)
+                time.sleep(backoff * (attempt + 1))
         assert last_error is not None
         raise last_error
 
@@ -257,7 +262,9 @@ class MetCollector:
             extra={
                 "repository": normalize_text(obj.get("repository")),
                 "classification": normalize_text(obj.get("classification")),
+                "object_name": normalize_text(obj.get("objectName")),
                 "country": normalize_text(obj.get("country")),
+                "credit_line": normalize_text(obj.get("creditLine")),
             },
         )
 
@@ -345,30 +352,47 @@ class MetCollector:
         ]
         object_ids: list[int] = []
         seen_ids: set[int] = set()
+        # The unpaginated /v1/search endpoint was retired on 2026-10-01; /v1.1/search returns
+        # {"total": N, "objectIDs": [...]} and is paginated with offset/limit.
+        page_size = 100
         for spec in search_specs:
-            params = {
-                "hasImages": "true",
-                "dateBegin": 900,
-                "dateEnd": 1912,
-                **spec,
-            }
-            result = self.client.get_json(
-                "https://collectionapi.metmuseum.org/public/collection/v1/search",
-                params=params,
-            )
-            for object_id in result.get("objectIDs") or []:
-                if object_id not in seen_ids:
-                    seen_ids.add(object_id)
-                    object_ids.append(object_id)
-                    if len(object_ids) >= limit:
-                        break
+            offset = 0
+            while True:
+                params = {
+                    "hasImages": "true",
+                    "dateBegin": 900,
+                    "dateEnd": 1912,
+                    "limit": page_size,
+                    "offset": offset,
+                    **spec,
+                }
+                result = self.client.get_json(
+                    "https://collectionapi.metmuseum.org/public/collection/v1.1/search",
+                    params=params,
+                )
+                page_ids = result.get("objectIDs") or []
+                for object_id in page_ids:
+                    if object_id not in seen_ids:
+                        seen_ids.add(object_id)
+                        object_ids.append(object_id)
+                        if len(object_ids) >= limit:
+                            break
+                offset += page_size
+                total = int(result.get("total") or 0)
+                if len(object_ids) >= limit or not page_ids or offset >= total:
+                    break
             if len(object_ids) >= limit:
                 break
+        print(f"[met] {len(object_ids)} object ids from search", flush=True)
+        from concurrent.futures import ThreadPoolExecutor
+
         records: list[CandidateRecord] = []
-        for object_id in object_ids:
-            record = self._fetch_object_record(object_id)
-            if record is not None and looks_like_chinese_landscape(record):
-                records.append(record)
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            for index, record in enumerate(pool.map(self._fetch_object_record, object_ids)):
+                if record is not None and looks_like_chinese_landscape(record):
+                    records.append(record)
+                if (index + 1) % 200 == 0:
+                    print(f"[met] fetched {index + 1}/{len(object_ids)}, accepted {len(records)}", flush=True)
         return records
 
 
@@ -622,7 +646,7 @@ class ArtICCollector:
             for item in result.get("data", []):
                 if not item.get("is_public_domain") or not item.get("image_id"):
                     continue
-                image_url = f"https://www.artic.edu/iiif/2/{item['image_id']}/full/843,/0/default.jpg"
+                image_url = f"https://www.artic.edu/iiif/2/{item['image_id']}/full/1686,/0/default.jpg"
                 tags = [normalize_text(tag) for tag in item.get("term_titles") or [] if normalize_text(tag)]
                 record = CandidateRecord(
                     source=self.name,
@@ -737,7 +761,7 @@ class WikimediaCollector:
                 image_url = normalize_text(image_info.get("thumburl")) or normalize_text(image_info.get("url"))
                 if not image_url:
                     continue
-                suffix = Path(image_url).suffix.lower()
+                suffix = Path(urlparse(image_url).path).suffix.lower()  # URLs now carry utm query strings
                 if suffix not in {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}:
                     continue
                 categories = [
@@ -793,6 +817,7 @@ class WikimediaCollector:
             '"Ma Yuan" landscape',
         ]
         category_terms = [
+            "Landscape paintings of China",
             "Chinese landscape paintings",
             "Landscape paintings from China",
             "Shan shui",
@@ -871,7 +896,7 @@ class WikimediaCollector:
                     image_url = normalize_text(image_info.get("thumburl")) or normalize_text(image_info.get("url"))
                     if not image_url:
                         continue
-                    suffix = Path(image_url).suffix.lower()
+                    suffix = Path(urlparse(image_url).path).suffix.lower()  # URLs now carry utm query strings
                     if suffix not in {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"}:
                         continue
                     categories = [
