@@ -38,6 +38,9 @@ def load_pipeline(config_path: str, ckpt: str) -> LandscapeGenerationPipeline:
     adapter = Path(ckpt) / "structure_adapter.pt"
     if adapter.exists():
         config.raw["model"]["hierarchical_adapter"]["weights_path"] = str(adapter)
+    branch = Path(ckpt) / "structure_branch.pt"
+    if branch.exists():
+        config.raw["model"].setdefault("structure_branch", {})["weights_path"] = str(branch)
     return LandscapeGenerationPipeline(config)
 
 

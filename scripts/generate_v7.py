@@ -36,6 +36,9 @@ def main(args: argparse.Namespace) -> None:
         adapter_path = Path(args.checkpoint_dir) / "structure_adapter.pt"
         if adapter_path.exists():
             config.raw.setdefault("model", {}).setdefault("hierarchical_adapter", {})["weights_path"] = str(adapter_path)
+        branch_path = Path(args.checkpoint_dir) / "structure_branch.pt"
+        if branch_path.exists():
+            config.raw.setdefault("model", {}).setdefault("structure_branch", {})["weights_path"] = str(branch_path)
     pipeline = LandscapeGenerationPipeline(config)
     samples = [s for s in load_manifest(args.manifest_path) if s.split == args.split]
     if args.sample_ids:
@@ -51,6 +54,7 @@ def main(args: argparse.Namespace) -> None:
         config.get("model", "hierarchical_adapter", "enabled", default=True)
         or config.get("model", "controlnet", "enabled", default=False)
         or config.get("model", "t2i_adapter", "enabled", default=False)
+        or config.get("model", "structure_branch", "enabled", default=False)
     )
     use_style = config.get("model", "style_reference", "enabled", default=True)
     seeds = [int(t) for t in args.seeds.split(",") if t.strip()]

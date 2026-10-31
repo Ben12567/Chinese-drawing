@@ -11,6 +11,7 @@ from PIL import Image
 from clpgen.config import ProjectConfig
 from clpgen.data.structure_maps import STRUCTURE_CHANNELS
 from clpgen.models.hierarchical_adapter import HierarchicalStructureAdapter
+from clpgen.models.residual_structure import build_structure_branch, condition_tensor
 
 
 @dataclass
@@ -32,6 +33,8 @@ class LandscapeGenerationPipeline:
         self.use_structure_adapter = config.get("model", "hierarchical_adapter", "enabled", default=True)
         self.use_controlnet = config.get("model", "controlnet", "enabled", default=False)
         self.use_t2i_adapter = config.get("model", "t2i_adapter", "enabled", default=False)
+        self.branch_cfg = config.get("model", "structure_branch", default={}) or {}
+        self.use_structure_branch = bool(self.branch_cfg.get("enabled", False))
         self.structure_channels_active = config.get("dataset", "structure_channels_active") or list(
             STRUCTURE_CHANNELS
         )
@@ -101,7 +104,13 @@ class LandscapeGenerationPipeline:
         if variant and self.device.type == "cuda":
             pipe_kwargs["variant"] = variant
 
-        if self.use_controlnet:
+        if self.use_structure_branch:
+            branch = build_structure_branch(self.branch_cfg, dtype=self.weight_dtype, trainable=False)
+            if self.branch_cfg.get("kind", "t2i") == "t2i":
+                self.pipe = StableDiffusionXLAdapterPipeline.from_pretrained(base_model, adapter=branch, **pipe_kwargs)
+            else:
+                self.pipe = StableDiffusionXLControlNetPipeline.from_pretrained(base_model, controlnet=branch, **pipe_kwargs)
+        elif self.use_controlnet:
             controlnet_cfg = self.config.get("model", "controlnet", default={})
             controlnet_model = ControlNetModel.from_pretrained(
                 controlnet_cfg.get("repo", "diffusers/controlnet-canny-sdxl-1.0"),
@@ -327,7 +336,20 @@ class LandscapeGenerationPipeline:
             "generator": generator,
         }
         control_image = self._prepare_control_image(request.structure_map)
-        if control_image is not None:
+        if self.use_structure_branch and request.structure_map is not None:
+            size = self.config.get("model", "resolution_infer", default=1024)
+            raw = request.structure_map
+            if isinstance(raw, Image.Image):
+                raw = np.asarray(raw.convert("RGBA").resize((size, size), Image.BILINEAR))
+            raw_tensor = torch.from_numpy(raw.astype(np.float32) / 255.0).permute(2, 0, 1).unsqueeze(0)
+            # A 4-channel tensor is passed to the diffusers pipelines unchanged.
+            pipe_kwargs["image"] = condition_tensor(raw_tensor, self.structure_channels_active)
+            scale = self.config.get("inference", "structure_conditioning_scale", default=1.0)
+            if self.branch_cfg.get("kind", "t2i") == "t2i":
+                pipe_kwargs["adapter_conditioning_scale"] = scale
+            else:
+                pipe_kwargs["controlnet_conditioning_scale"] = scale
+        elif control_image is not None:
             size = self.config.get("model", "resolution_infer", default=1024)
             pipe_kwargs["image"] = control_image.resize((size, size))
             if self.use_controlnet:

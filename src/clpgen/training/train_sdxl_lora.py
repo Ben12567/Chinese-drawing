@@ -14,6 +14,14 @@ from tqdm import tqdm
 from clpgen.config import ProjectConfig
 from clpgen.data.dataset import ChineseLandscapeDataset
 from clpgen.models.hierarchical_adapter import HierarchicalStructureAdapter
+from clpgen.models.residual_structure import (
+    build_structure_branch,
+    condition_tensor,
+    input_layer_name,
+    structural_loss,
+    trainable_state_dict,
+    unet_residual_kwargs,
+)
 from clpgen.utils.randomness import set_global_seed
 
 
@@ -68,12 +76,15 @@ def resolve_dtype(config: ProjectConfig, device: torch.device) -> torch.dtype:
 
 
 def build_dataset(config: ProjectConfig, split: str) -> ChineseLandscapeDataset:
+    # The residual structure branch masks inactive channels itself (after inverting the line art),
+    # so it receives the raw map.
+    residual_branch = config.get("model", "structure_branch", "enabled", default=False)
     return ChineseLandscapeDataset(
         manifest_path=config.get("dataset", "manifest_path"),
         split=split,
         image_size=config.get("dataset", "image_size", default=768),
         prompt_mode=config.get("dataset", "prompt_mode_train", default="structured"),
-        structure_channels_active=config.get("dataset", "structure_channels_active"),
+        structure_channels_active=None if residual_branch else config.get("dataset", "structure_channels_active"),
     )
 
 
@@ -175,6 +186,7 @@ def save_checkpoint(
     structure_adapter: HierarchicalStructureAdapter | None,
     output_dir: Path,
     step: int,
+    structure_branch: torch.nn.Module | None = None,
 ) -> None:
     from diffusers import StableDiffusionXLPipeline
     from diffusers.utils import convert_state_dict_to_diffusers
@@ -199,6 +211,8 @@ def save_checkpoint(
         pipeline.text_encoder_2.save_pretrained(step_dir / "peft_text_encoder_2")
     if structure_adapter is not None:
         torch.save(structure_adapter.state_dict(), step_dir / "structure_adapter.pt")
+    if structure_branch is not None:
+        torch.save(trainable_state_dict(structure_branch), step_dir / "structure_branch.pt")
 
 
 def train(config: ProjectConfig) -> None:
@@ -291,12 +305,35 @@ def train(config: ProjectConfig) -> None:
         structure_adapter.train()
         upcast_trainable_params(structure_adapter)
 
+    branch_cfg = config.get("model", "structure_branch", default={}) or {}
+    branch_kind = branch_cfg.get("kind", "t2i")
+    active_channels = config.get("dataset", "structure_channels_active")
+    structure_branch = None
+    if branch_cfg.get("enabled", False):
+        structure_branch = build_structure_branch(branch_cfg, dtype=dtype, trainable=True).to(device)
+        upcast_trainable_params(structure_branch)
+        if branch_kind == "controlnet" and config.get("training", "gradient_checkpointing", default=True):
+            structure_branch.enable_gradient_checkpointing()
+        structure_branch.train()
+    branch_scale = config.get("training", "structure_conditioning_scale", default=1.0)
+
+    struct_loss_weight = config.get("training", "struct_loss_weight", default=0.0)
+    tiny_vae = None
+    if struct_loss_weight > 0:
+        from diffusers import AutoencoderTiny
+
+        tiny_vae = AutoencoderTiny.from_pretrained(config.get("model", "taesd_path"), torch_dtype=dtype).to(device)
+        tiny_vae.requires_grad_(False)
+        tiny_vae.eval()
+
     total_trainable_params = _count_params(pipeline.unet)
     if lora_cfg.get("train_text_encoder", True):
         total_trainable_params += _count_params(pipeline.text_encoder)
         total_trainable_params += _count_params(pipeline.text_encoder_2)
     if structure_adapter is not None:
         total_trainable_params += _count_params(structure_adapter)
+    if structure_branch is not None:
+        total_trainable_params += _count_params(structure_branch)
     print(
         TrainingSummary(
             num_trainable_params=total_trainable_params,
@@ -318,6 +355,23 @@ def train(config: ProjectConfig) -> None:
             {
                 "params": [param for param in structure_adapter.parameters() if param.requires_grad],
                 "lr": config.get("training", "adapter_learning_rate", default=5.0e-5),
+            }
+        )
+    if structure_branch is not None:
+        # The extended input layer (zero-initialised filters for the new channels) uses a larger
+        # learning rate than the pretrained remainder of the branch.
+        in_name = input_layer_name(branch_kind)
+        named = [(n, p) for n, p in structure_branch.named_parameters() if p.requires_grad]
+        param_groups.append(
+            {
+                "params": [p for n, p in named if not n.startswith(in_name)],
+                "lr": config.get("training", "adapter_learning_rate", default=2.0e-5),
+            }
+        )
+        param_groups.append(
+            {
+                "params": [p for n, p in named if n.startswith(in_name)],
+                "lr": config.get("training", "branch_input_learning_rate", default=1.0e-4),
             }
         )
     if lora_cfg.get("train_text_encoder", True):
@@ -342,9 +396,9 @@ def train(config: ProjectConfig) -> None:
     # Per-optimizer-step training log (loss averaged over the accumulated micro-batches).
     log_path = output_dir / "train_log.csv"
     log_file = log_path.open("w", encoding="utf-8")
-    log_file.write("step,epoch,loss,lr_lora,lr_adapter
-")
+    log_file.write("step,epoch,loss,lr_lora,lr_adapter,struct_loss" + chr(10))
     accumulated_loss = 0.0
+    accumulated_struct = 0.0
     accumulated_count = 0
 
     for epoch in range(num_epochs):
@@ -386,23 +440,40 @@ def train(config: ProjectConfig) -> None:
                 device=device,
             )
 
+            added_cond_kwargs = {"text_embeds": pooled_prompt_embeds, "time_ids": add_time_ids}
             with torch.autocast(device_type=device.type, dtype=dtype, enabled=device.type == "cuda"):
+                residual_kwargs = {}
+                if structure_branch is not None:
+                    cond = condition_tensor(batch["structure_map"], active_channels).to(device=device, dtype=dtype)
+                    residual_kwargs = unet_residual_kwargs(
+                        structure_branch, branch_kind, cond, branch_scale, noisy_latents, timesteps,
+                        encoder_hidden_states, added_cond_kwargs, dtype,
+                    )
                 model_pred = pipeline.unet(
                     noisy_latents,
                     timesteps,
                     encoder_hidden_states=encoder_hidden_states,
-                    added_cond_kwargs={
-                        "text_embeds": pooled_prompt_embeds,
-                        "time_ids": add_time_ids,
-                    },
+                    added_cond_kwargs=added_cond_kwargs,
+                    **residual_kwargs,
                 ).sample
-                loss = F.mse_loss(model_pred.float(), noise.float(), reduction="mean") / grad_accum_steps
+                loss = F.mse_loss(model_pred.float(), noise.float(), reduction="mean")
+                struct_value = 0.0
+                if tiny_vae is not None:
+                    alpha_bar = noise_scheduler.alphas_cumprod.to(device)[timesteps].float().view(-1, 1, 1, 1)
+                    x0 = (noisy_latents.float() - (1.0 - alpha_bar).sqrt() * model_pred.float()) / alpha_bar.sqrt()
+                    x_hat = tiny_vae.decode(x0.to(dtype)).sample
+                    x_hat01 = (x_hat.float().clamp(-1.0, 1.0) + 1.0) / 2.0
+                    l_struct = structural_loss(x_hat01, batch["structure_map"], alpha_bar.view(-1), active_channels)
+                    struct_value = float(l_struct.detach().cpu())
+                    loss = loss + struct_loss_weight * l_struct
+                loss = loss / grad_accum_steps
 
             if scaler.is_enabled():
                 scaler.scale(loss).backward()
             else:
                 loss.backward()
             accumulated_loss += float(loss.detach().cpu()) * grad_accum_steps
+            accumulated_struct += struct_value
             accumulated_count += 1
 
             should_step = (step_in_epoch + 1) % grad_accum_steps == 0 or (step_in_epoch + 1) == len(dataloader)
@@ -420,26 +491,26 @@ def train(config: ProjectConfig) -> None:
                     optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
                 global_step += 1
-                lr_adapter = param_groups[1]["lr"] if structure_adapter is not None else ""
+                lr_adapter = param_groups[1]["lr"] if (structure_adapter is not None or structure_branch is not None) else ""
                 log_file.write(
                     f"{global_step},{epoch},{accumulated_loss / max(accumulated_count, 1):.6f},"
-                    f"{param_groups[0]['lr']},{lr_adapter}
-"
+                    f"{param_groups[0]['lr']},{lr_adapter},{accumulated_struct / max(accumulated_count, 1):.6f}" + chr(10)
                 )
                 log_file.flush()
                 accumulated_loss = 0.0
+                accumulated_struct = 0.0
                 accumulated_count = 0
 
             progress.set_postfix(loss=float(loss.detach().cpu() * grad_accum_steps), step=global_step)
 
             if should_step and checkpoint_every and global_step > 0 and global_step % checkpoint_every == 0:
-                save_checkpoint(config, pipeline, structure_adapter, output_dir, global_step)
+                save_checkpoint(config, pipeline, structure_adapter, output_dir, global_step, structure_branch)
 
         if max_train_steps is not None and global_step >= max_train_steps:
             break
 
     log_file.close()
-    save_checkpoint(config, pipeline, structure_adapter, output_dir, global_step or 0)
+    save_checkpoint(config, pipeline, structure_adapter, output_dir, global_step or 0, structure_branch)
 
 
 def main(config_path: str | Path, dry_run: bool = True) -> None:

@@ -97,6 +97,40 @@ CONFIGS = {
 }
 
 
+BRANCH_REPOS = {"t2i": "models/t2i-adapter-lineart-sdxl-1.0", "controlnet": "models/controlnet-canny-sdxl-1.0"}
+
+
+def variant_v8(name: str, kind: str, *, beta: float = 0.0, style: bool = True, channels: list[str] | None = None,
+               scale: float = 1.0) -> dict:
+    """v8: residual structure branch (see clpgen/models/residual_structure.py) instead of the
+    token adapter; trained jointly with LoRA, branch scale 1.0 during training, lambda_s = scale
+    at inference."""
+    cfg = variant(name, adapter=False, style=style, train=True, channels=channels)
+    cfg["model"]["structure_branch"] = {"enabled": True, "kind": kind, "repo": BRANCH_REPOS[kind], "variant": "fp16",
+                                        "lora_rank": 16, "weights_path": None}
+    cfg["model"]["taesd_path"] = "models/taesdxl"
+    cfg["training"].update({"structure_conditioning_scale": 1.0, "struct_loss_weight": beta,
+                            "branch_input_learning_rate": 1.0e-4})
+    cfg["inference"]["structure_conditioning_scale"] = scale
+    return cfg
+
+
+V8_CONFIGS = {
+    # validation pilot: backbone x auxiliary loss (selection rule in configs/revision/v8_preregistration.md)
+    "v8_t2i": variant_v8("v8_t2i", "t2i"),
+    "v8_t2i_ls": variant_v8("v8_t2i_ls", "t2i", beta=0.05),
+    "v8_cn": variant_v8("v8_cn", "controlnet"),
+    "v8_cn_ls": variant_v8("v8_cn_ls", "controlnet", beta=0.05),
+}
+for _kind in ["t2i", "controlnet"]:
+    _short = "t2i" if _kind == "t2i" else "cn"
+    for _beta, _suffix in [(0.0, ""), (0.05, "_ls")]:
+        for _scale in [0.6, 0.8]:
+            _n = f"v8_{_short}{_suffix}_infer{int(_scale * 10):02d}"
+            V8_CONFIGS[_n] = variant_v8(_n, _kind, beta=_beta, scale=_scale)
+CONFIGS.update(V8_CONFIGS)
+
+
 def main() -> None:
     out = Path("configs/revision")
     out.mkdir(parents=True, exist_ok=True)
