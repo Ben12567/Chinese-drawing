@@ -88,6 +88,9 @@ def evaluate_split(name: str, split: str, gen_root: Path, eval_root: Path, n_boo
     if not (out / "structure_v8_summary.json").exists():
         run([PY, "scripts/structure_metrics_v8.py", "--manifest-path", MANIFEST, "--prediction-dir", str(gen_root / name),
              "--output-dir", str(out), "--split", split])
+    if not (out / "style_v8_summary.json").exists():
+        run([PY, "scripts/style_v8.py", "score", "--runs", name, "--gen-root", str(gen_root), "--eval-root", str(eval_root),
+             "--split", split])
 
 
 def val_run(name: str, config: str, ckpt: Path | None) -> None:
