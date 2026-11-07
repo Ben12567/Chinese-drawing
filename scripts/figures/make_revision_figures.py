@@ -2,7 +2,8 @@
 
 Qualitative examples are drawn at random (numpy Generator with the seed given below) from the
 test set; no example is hand-picked. Every generated image is annotated with its per-image
-edge IoU (E) and blank-space IoU (B); no evaluative labels are used.
+line-art IoU (E) and blank-space IoU (B) of structure_metrics_v8.py (structure re-extracted from
+the output and compared with the input map); no evaluative labels are used.
 """
 from __future__ import annotations
 
@@ -37,9 +38,17 @@ MAIN = [
     ("IP-Adapter-only", ["ip_adapter_only"]),
     ("LoRA+ControlNet", ["lora_controlnet_s42", "lora_controlnet_s52", "lora_controlnet_s62"]),
     ("LoRA+IP-Adapter", ["lora_ip_adapter_s42", "lora_ip_adapter_s52", "lora_ip_adapter_s62"]),
-    ("Ours w/o style ref.", ["ours_no_style_s42", "ours_no_style_s52", "ours_no_style_s62"]),
-    ("Ours", ["ours_s42", "ours_s52", "ours_s62"]),
+    ("Token adapter", ["ours_s42", "ours_s52", "ours_s62"]),
+    ("Ours w/o style ref.", ["ours_v8_no_style_s42", "ours_v8_no_style_s52", "ours_v8_no_style_s62"]),
+    ("Ours, line art only", ["ours_v8_lineart_s42", "ours_v8_lineart_s52", "ours_v8_lineart_s62"]),
+    ("Ours", ["ours_v8_s42", "ours_v8_s52", "ours_v8_s62"]),
 ]
+CTRL = ROOT / "outputs/revision/controllability_v8_ours"
+
+
+def num(x: float) -> str:
+    """Score for an annotation; IoU is undefined (n/a) when both masks are empty."""
+    return "n/a" if pd.isna(x) else f"{x:.3f}"
 
 
 def manifest() -> dict:
@@ -52,10 +61,24 @@ def summary(run: str) -> dict:
 
 
 def per_image(run: str) -> pd.DataFrame:
-    return pd.read_csv(EVAL / run / "per_image_metrics.csv")
+    """Per-image metrics of a run: evaluate_v7 columns plus the v8 structure scores (blank_iou_re etc.)."""
+    df = pd.read_csv(EVAL / run / "per_image_metrics.csv")
+    v8 = pd.read_csv(EVAL / run / "structure_v8_per_image.csv")[["path", "edge_iou", "blank_iou_re", "layer_acc", "salience_iou"]]
+    df = df.drop(columns=["edge_iou"]).merge(v8, on="path", how="left")
+    # style_v8_per_image.csv rows follow the sorted image paths of the run (style_v8.py)
+    style = pd.read_csv(EVAL / run / "style_v8_per_image.csv")
+    paths = sorted(df.path, key=lambda p: Path(p).name)
+    if len(paths) == len(style):
+        style["path"] = paths
+        df = df.merge(style[["path", "target", "pred", "correct"]].rename(
+            columns={"target": "target_colour", "pred": "pred_colour", "correct": "colour_correct"}), on="path", how="left")
+    return df
 
 
 def show(ax, path, title=None, note=None, gray=False):
+    path = Path(path)
+    if not path.is_absolute():
+        path = ROOT / path  # result tables store paths relative to the repository root
     ax.imshow(Image.open(path).convert("L" if gray else "RGB"), cmap="gray" if gray else None)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -84,7 +107,8 @@ def fig3_fidelity(out: Path) -> None:
         ax.barh(y, means, color=colors, height=0.65)
         err_lo = np.array(means) - np.array(lo)
         err_hi = np.array(hi) - np.array(means)
-        ax.errorbar(means, y, xerr=[np.clip(err_lo, 0, None), np.clip(err_hi, 0, None)], fmt="none", ecolor="black", lw=0.7, capsize=1.5)
+        if key != "fid":  # bootstrap FID is biased upwards by duplicated images; no interval shown
+            ax.errorbar(means, y, xerr=[np.clip(err_lo, 0, None), np.clip(err_hi, 0, None)], fmt="none", ecolor="black", lw=0.7, capsize=1.5)
         for yy, m, sd in zip(y, means, sds):
             if not np.isnan(sd):
                 ax.plot([m - sd, m + sd], [yy + 0.38, yy + 0.38], color="#ff9f1c", lw=1.2)
@@ -109,7 +133,7 @@ def annotate(df: pd.DataFrame, path: str) -> str:
     if row.empty:
         return ""
     r = row.iloc[0]
-    return f"E {r.edge_iou:.3f}  B {r.blank_iou:.3f}"
+    return f"E {num(r.edge_iou)}  B {num(r.blank_iou_re)}"
 
 
 def fig4_qualitative(out: Path, runs: list[tuple[str, str]], n: int = 4, seed_tag: str = "42") -> None:
@@ -132,9 +156,8 @@ def fig4_qualitative(out: Path, runs: list[tuple[str, str]], n: int = 4, seed_ta
 
 
 def fig5_structure(out: Path, n: int = 4) -> None:
-    df = pd.read_csv(ROOT / "outputs/revision/controllability/structure_controllability.csv")
+    df = pd.read_csv(CTRL / "structure_controllability.csv")
     m = manifest()
-    rng = np.random.default_rng(SAMPLING_SEED)
     prompt_id = df.prompt_sample.iloc[0]
     rows = df[df.prompt_sample == prompt_id].iloc[:n]
     fig, axes = plt.subplots(n, 5, figsize=(7.5, 7.5 * n / 5 * 1.05))
@@ -154,7 +177,7 @@ def fig5_structure(out: Path, n: int = 4) -> None:
 
 
 def fig6_style(out: Path) -> None:
-    df = pd.read_csv(ROOT / "outputs/revision/controllability/style_controllability.csv")
+    df = pd.read_csv(CTRL / "style_controllability.csv")
     m = manifest()
     prompt_id = df.prompt_sample.iloc[0]
     rows = df[df.prompt_sample == prompt_id]
@@ -162,39 +185,116 @@ def fig6_style(out: Path) -> None:
     for j, (_, row) in enumerate(rows.iterrows()):
         show(axes[0, j], DATA / m[row.reference_sample]["image_path"], f"Reference: {row.reference_group.replace('_', ' ')}",
              f"saturation {row.ref_mean_saturation:.2f}")
-        show(axes[1, j], row.path, None, f"predicted: {row.predicted_group.replace('_', ' ')}; saturation {row.mean_saturation:.2f}")
+        show(axes[1, j], row.path, None, f"saturation {row.mean_saturation:.2f}")
     axes[0, 0].set_ylabel("Style reference\n(real, training split)", fontsize=6.5)
     axes[1, 0].set_ylabel("Output (Ours)", fontsize=6.5)
     fig.tight_layout(pad=0.3)
     save_tiff(fig, out)
 
 
-def fig8_failures(out: Path, run: str = "ours_s42", n: int = 4) -> None:
+def fig8_failures(out: Path, run: str = "ours_v8_s42", n: int = 4) -> None:
+    """Two lowest line-art IoU outputs and two random colour-treatment misclassifications (seed-42 images)."""
     df = per_image(run)
     m = manifest()
     df = df[df.path.str.contains("seed42")]
-    picks = list(df.nsmallest(n // 2, "edge_iou").path) + list(df[df.style_correct == 0].sample(n - n // 2, random_state=SAMPLING_SEED).path)
-    fig, axes = plt.subplots(3, n, figsize=(7.5, 6.2))
+    lowest = list(df.nsmallest(n // 2, "edge_iou").path)
+    wrong = df[(df.colour_correct == 0) & ~df.path.isin(lowest)]
+    picks = lowest + list(wrong.sample(n - n // 2, random_state=SAMPLING_SEED).path)
+    fig, axes = plt.subplots(3, n, figsize=(7.5, 6.8))
     for j, path in enumerate(picks):
         sid = Path(path).stem.split("__seed")[0]
         r = m[sid]
         row = df[df.path == path].iloc[0]
         show(axes[0, j], DATA / r["image_path"], "Real test painting" if j == 0 else None)
         axes[1, j].imshow(channel_images(DATA / r["structure_map_path"])[0], cmap="gray"); axes[1, j].set_xticks([]); axes[1, j].set_yticks([])
-        show(axes[2, j], path, None, f"E {row.edge_iou:.3f} B {row.blank_iou:.3f}\ntarget {row.target_style}\npred. {row.pred_style}")
+        show(axes[2, j], path, None, f"E {num(row.edge_iou)} B {num(row.blank_iou_re)}\ntarget {row.target_colour}\npred. {row.pred_colour}")
     fig.tight_layout(pad=0.3)
     save_tiff(fig, out)
 
 
+def fig2_framework(out: Path) -> None:
+    """Schematic of the implemented model (v8) with the inputs and output of one random test painting."""
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+
+    m = manifest()
+    sid = pick_random_tests(1)[0]
+    r = m[sid]
+    ref = m[r["extra"]["style_reference_id"]]
+    fig = plt.figure(figsize=(7.5, 3.9))
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, 100)
+    ax.set_ylim(0, 52)
+    ax.axis("off")
+
+    def box(x, y, w, h, text, colour, trained=False, size=6.3, inner=False):
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.3,rounding_size=0.8", lw=1.2 if trained else 0.7,
+                                    ec="#c44e52" if trained else ("#999999" if inner else "#555555"), fc=colour,
+                                    ls="-" if trained or inner else "--"))
+        ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=size, wrap=True)
+
+    def arrow(x0, y0, x1, y1, text=None, at=None, ha="center", va="bottom"):
+        ax.add_patch(FancyArrowPatch((x0, y0), (x1, y1), arrowstyle="-|>", mutation_scale=7, lw=0.7, color="#333333"))
+        if text:
+            tx, ty = at if at else ((x0 + x1) / 2, (y0 + y1) / 2 + 1.2)
+            ax.text(tx, ty, text, ha=ha, va=va, fontsize=5.3, color="#333333")
+
+    def thumb(x, y, w, h, image, gray=False):
+        sub = fig.add_axes([x / 100, y / 52, w / 100, h / 52])
+        sub.imshow(image, cmap="gray" if gray else None, vmin=0, vmax=255)
+        sub.set_xticks([]); sub.set_yticks([])
+        for s in sub.spines.values():
+            s.set_linewidth(0.3)
+
+    # inputs
+    ax.text(9, 50.5, "Inputs", ha="center", fontsize=7, weight="bold")
+    box(1, 40.5, 16, 7.5, "Structured prompt $p$\n(nine fields, VLM)", "#eef3fb")
+    chans = channel_images(DATA / r["structure_map_path"])
+    for k, c in enumerate(chans):
+        thumb(1 + 4.1 * k, 25.5, 3.8, 9, np.asarray(Image.fromarray(c).resize((96, 128))), gray=True)
+    ax.text(9, 23.3, "Condition map $s$: line art, layer,\nblank space, salience", ha="center", va="top", fontsize=5.5)
+    thumb(4, 4, 10, 12, np.asarray(Image.open(DATA / ref["image_path"]).convert("RGB").resize((160, 192))))
+    ax.text(9, 2.2, "Style reference $r$ (training split)", ha="center", fontsize=5.5)
+
+    # encoders
+    box(22, 41, 17, 6.5, "SDXL text encoders\n(frozen)", "#eef3fb")
+    box(22, 22, 17, 14, "Structure branch $B_\\psi$\nControlNet copy of the\nSDXL encoder (init. Canny\nControlNet, 4-ch input)\ntrained: condition embedding,\nzero convs $P_l$, LoRA r16", "#fdecea", trained=True, size=5.6)
+    box(22, 6, 17, 8, "IP-Adapter image\nencoder + projection\n(frozen)", "#eef6ee")
+    arrow(17.5, 44.2, 21.5, 44.2)
+    arrow(17.5, 30, 21.5, 30)
+    arrow(14.5, 10, 21.5, 10)
+    arrow(30.5, 40.5, 30.5, 36.5, "$z_t$, $t$, text", at=(31.3, 38.5), ha="left", va="center")
+
+    # U-Net
+    box(46, 8, 24, 39.5, "", "#fff6e6", trained=True)
+    ax.text(58, 44.5, "SDXL U-Net + LoRA (r8, trained)", ha="center", fontsize=6.5, weight="bold")
+    box(48.5, 34, 19, 7.5, "cross-attention to text\n$\\mathrm{Softmax}(QK_c^\\top/\\sqrt{d})V_c$", "#ffffff", size=5.5, inner=True)
+    box(48.5, 22, 19, 9, "encoder stages + middle block\n$\\tilde h_l = h_l + \\lambda_s P_l(F_s^l)$\n($\\lambda_s=1$)", "#ffffff", size=5.5, inner=True)
+    box(48.5, 10.5, 19, 8.5, "decoupled cross-attention\n$+\\lambda_r\\,\\mathrm{Softmax}(QK_r^\\top/\\sqrt{d})V_r$\n($\\lambda_r=0.55$)", "#ffffff", size=5.5, inner=True)
+    arrow(39.5, 44.2, 48, 38, "text tokens", at=(42.3, 44.8))
+    arrow(39.5, 29, 48, 26.5, "$F_s^l$\n(multi-\nscale)", at=(42.6, 29.0))
+    arrow(39.5, 10, 48, 14, "image\ntokens", at=(42.5, 13.2))
+
+    # output
+    ax.text(88, 50.5, "Output", ha="center", fontsize=7, weight="bold")
+    arrow(70.5, 27.5, 77.5, 27.5, "30 Euler\nsteps,\nCFG 7.5,\nVAE\ndecode", at=(74, 26), va="top")
+    out_img = GEN / "ours_v8_s42" / f"{sid}__seed42.png"
+    thumb(78, 14, 20, 27, np.asarray(Image.open(out_img).convert("RGB").resize((256, 256))))
+    ax.text(88, 12, "Generated painting\n(model output)", ha="center", va="top", fontsize=5.5)
+    ax.text(1, 0.3, "Solid red outline: trained on the benchmark training split; dashed grey outline: frozen public checkpoint.",
+            fontsize=5.3, color="#555555")
+    save_tiff(fig, out)
+    (OUT / "Fig2_sources.json").write_text(json.dumps({"condition_and_output": sid, "style_reference": ref["sample_id"]}, indent=2), encoding="utf-8")
+
+
 def s_training_curves(out: Path) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(7.5, 2.6))
-    for ax, prefix in zip(axes, ["ours", "lora_only"]):
+    for ax, prefix in zip(axes, ["v8_cn", "lora_only"]):
         for seed in [42, 52, 62]:
             log = TRAIN / f"{prefix}_s{seed}" / "train_log.csv"
             if log.exists():
                 d = pd.read_csv(log)
                 ax.plot(d.step, d.loss.rolling(20, min_periods=1).mean(), lw=0.8, label=f"seed {seed}")
-        ax.set_title({"ours": "Ours (LoRA + adapter)", "lora_only": "LoRA-only"}[prefix], fontsize=8)
+        ax.set_title({"v8_cn": "Ours (LoRA + residual structure branch)", "lora_only": "LoRA-only"}[prefix], fontsize=8)
         ax.set_xlabel("optimiser step"); ax.set_ylabel("training loss (20-step mean)")
         ax.legend(fontsize=6)
     fig.tight_layout()
@@ -203,19 +303,21 @@ def s_training_curves(out: Path) -> None:
 
 def main(args: argparse.Namespace) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
+    if "2" in args.which:
+        fig2_framework(OUT / "Fig2.tif")
     if "3" in args.which:
         fig3_fidelity(OUT / "Fig3.tif")
     if "4" in args.which:
-        fig4_qualitative(OUT / "Fig4.tif", [("LoRA-only", "lora_only_s42"), ("ControlNet", "controlnet"), ("T2I-Adapter", "t2i_adapter"),
-                                             ("IP-Adapter-only", "ip_adapter_only"), ("LoRA+ControlNet", "lora_controlnet_s42"),
-                                             ("LoRA+IP-Adapter", "lora_ip_adapter_s42"), ("Ours", "ours_s42")])
+        fig4_qualitative(OUT / "Fig4.tif", [("LoRA-only", "lora_only_s42"), ("ControlNet", "controlnet"), ("IP-Adapter-only", "ip_adapter_only"),
+                                             ("LoRA+ControlNet", "lora_controlnet_s42"), ("LoRA+IP-Adapter", "lora_ip_adapter_s42"),
+                                             ("Token adapter", "ours_s42"), ("Ours", "ours_v8_s42")])
     if "5" in args.which:
         fig5_structure(OUT / "Fig5.tif")
     if "6" in args.which:
         fig6_style(OUT / "Fig6.tif")
     if "7" in args.which:
-        fig4_qualitative(OUT / "Fig7.tif", [("w/o structure\n(LoRA+IP-Adapter)", "lora_ip_adapter_s42"), ("w/o style ref.", "ours_no_style_s42"),
-                                             ("w/o both\n(LoRA-only)", "lora_only_s42"), ("Full model", "ours_s42")], n=3)
+        fig4_qualitative(OUT / "Fig7.tif", [("w/o structure branch\n(LoRA+IP-Adapter)", "lora_ip_adapter_s42"), ("w/o style ref.", "ours_v8_no_style_s42"),
+                                             ("Line art only", "ours_v8_lineart_s42"), ("Full model", "ours_v8_s42")], n=3)
     if "8" in args.which:
         fig8_failures(OUT / "Fig8.tif")
     if "S" in args.which:

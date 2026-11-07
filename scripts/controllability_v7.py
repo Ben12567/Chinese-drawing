@@ -59,6 +59,8 @@ def main(args: argparse.Namespace) -> None:
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
     pipe = load_pipeline(args.config, args.checkpoint_dir)
+    # Baselines without a style reference (e.g. LoRA+ControlNet) get no reference image, as in generate_v7.py.
+    use_style = pipe.config.get("model", "style_reference", "enabled", default=True)
 
     def gen(prompt_sample, structure_sample, reference_path: Path, path: Path) -> None:
         if path.exists():
@@ -66,7 +68,7 @@ def main(args: argparse.Namespace) -> None:
         image = pipe.generate(GenerationRequest(
             prompt=prompt_sample.prompt_structured_zh,
             structure_map=Image.open(root / structure_sample.structure_map_path).convert("RGBA"),
-            style_reference=Image.open(reference_path).convert("RGB"),
+            style_reference=Image.open(reference_path).convert("RGB") if use_style else None,
             seed=zlib.crc32(f"{prompt_sample.sample_id}|{structure_sample.sample_id}|{reference_path.name}".encode()) % (2**31 - 1),
         ))
         image.save(path)
@@ -89,6 +91,21 @@ def main(args: argparse.Namespace) -> None:
             rows.append(row)
     structure_df = pd.DataFrame(rows)
     structure_df.to_csv(out / "structure_controllability.csv", index=False)
+    structure_summary = {
+        "n": int(len(structure_df)),
+        "edge_iou_used": float(structure_df.edge_iou_used.mean()),
+        "edge_iou_unused": float(structure_df.edge_iou_unused.mean()),
+        "blank_iou_used": float(structure_df.blank_iou_used.mean()),
+        "blank_iou_unused": float(structure_df.blank_iou_unused.mean()),
+        "edge_used_gt_unused_fraction": float((structure_df.edge_iou_used > structure_df.edge_iou_unused).mean()),
+        "blank_used_gt_unused_fraction": float((structure_df.blank_iou_used > structure_df.blank_iou_unused).mean()),
+    }
+    if not use_style:
+        # The style experiment varies only the reference image, which this method does not take.
+        summary = {"structure": structure_summary, "style": None}
+        (out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        print(json.dumps(summary, indent=2))
+        return
 
     # Style experiment.
     bundle = pickle.loads(Path(args.style_classifier).read_bytes())
@@ -110,15 +127,7 @@ def main(args: argparse.Namespace) -> None:
     style_df.to_csv(out / "style_controllability.csv", index=False)
 
     summary = {
-        "structure": {
-            "n": int(len(structure_df)),
-            "edge_iou_used": float(structure_df.edge_iou_used.mean()),
-            "edge_iou_unused": float(structure_df.edge_iou_unused.mean()),
-            "blank_iou_used": float(structure_df.blank_iou_used.mean()),
-            "blank_iou_unused": float(structure_df.blank_iou_unused.mean()),
-            "edge_used_gt_unused_fraction": float((structure_df.edge_iou_used > structure_df.edge_iou_unused).mean()),
-            "blank_used_gt_unused_fraction": float((structure_df.blank_iou_used > structure_df.blank_iou_unused).mean()),
-        },
+        "structure": structure_summary,
         "style": {
             "n": int(len(style_df)),
             "prediction_matches_reference_group": float((style_df.predicted_group == style_df.reference_group).mean()),
