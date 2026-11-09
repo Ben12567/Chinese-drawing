@@ -160,7 +160,7 @@ def fig5_structure(out: Path, n: int = 4) -> None:
     m = manifest()
     prompt_id = df.prompt_sample.iloc[0]
     rows = df[df.prompt_sample == prompt_id].iloc[:n]
-    fig, axes = plt.subplots(n, 5, figsize=(7.5, 7.5 * n / 5 * 1.05))
+    fig, axes = plt.subplots(n, 5, figsize=(7.5, 7.5 * n / 5 * 1.12))
     names = ["Line art", "Layer map", "Blank-space mask", "Salience mask", "Output (Ours)"]
     for i, (_, row) in enumerate(rows.iterrows()):
         chans = channel_images(DATA / m[row.structure_sample]["structure_map_path"])
@@ -171,7 +171,8 @@ def fig5_structure(out: Path, n: int = 4) -> None:
                 axes[i, j].set_title(names[j], fontsize=7)
         show(axes[i, 4], row.path, names[4] if i == 0 else None,
              f"E {row.edge_iou_used:.3f} (others {row.edge_iou_unused:.3f})\nB {row.blank_iou_used:.3f} (others {row.blank_iou_unused:.3f})")
-    fig.tight_layout(pad=0.3)
+    fig.tight_layout(pad=0.3, h_pad=1.6)
+    fig.subplots_adjust(bottom=0.06)
     save_tiff(fig, out)
     return prompt_id
 
@@ -286,6 +287,92 @@ def fig2_framework(out: Path) -> None:
     (OUT / "Fig2_sources.json").write_text(json.dumps({"condition_and_output": sid, "style_reference": ref["sample_id"]}, indent=2), encoding="utf-8")
 
 
+def fig1_motivation(out: Path) -> None:
+    """Motivation figure built only from benchmark images and existing outputs (replaces the original Fig 1).
+
+    Panel A: a real training painting from a museum source; panel B: unadapted SDXL outputs for test prompts;
+    panel C: the inputs and output of the proposed model for one test painting. All examples are drawn at
+    random (SAMPLING_SEED) from paintings not shown in Figs 2, 4, 5, 7 and 8; the labels only describe.
+    """
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+
+    m = manifest()
+    fig2 = json.loads((OUT / "Fig2_sources.json").read_text(encoding="utf-8"))
+    used = set(pick_random_tests(4)) | {fig2["condition_and_output"], fig2["style_reference"]}
+    ctrl = pd.read_csv(CTRL / "structure_controllability.csv")
+    p0 = ctrl.prompt_sample.iloc[0]
+    used |= {p0} | set(ctrl[ctrl.prompt_sample == p0].structure_sample)
+    f8 = per_image("ours_v8_s42")
+    used |= {Path(p).stem.split("__seed")[0] for p in f8[f8.path.str.contains("seed42")].nsmallest(2, "edge_iou").path}
+    rng = np.random.default_rng(SAMPLING_SEED + 1)
+    test = [s for s in sorted(s for s, r in m.items() if r["split"] == "test") if s not in used]
+    picks = list(rng.choice(test, 4, replace=False))
+    sdxl_ids, cid = picks[:3], picks[3]
+    met_train = sorted(s for s, r in m.items() if r["split"] == "train" and r["source"] == "met"
+                       and r["height"] > 1.6 * r["width"])
+    aid = str(rng.choice(met_train))
+    c = m[cid]
+    ref = m[c["extra"]["style_reference_id"]]
+
+    fig = plt.figure(figsize=(7.5, 3.7))
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, 100)
+    ax.set_ylim(0, 50)
+    ax.axis("off")
+
+    def panel(x, w, letter, title, colour):
+        ax.add_patch(FancyBboxPatch((x, 1), w, 47, boxstyle="round,pad=0.2,rounding_size=1", lw=0.6, ec="#bbbbbb", fc=colour))
+        ax.text(x + 1.2, 46, letter, fontsize=8, weight="bold", va="center")
+        ax.text(x + w / 2 + 1, 46, title, fontsize=6.8, weight="bold", ha="center", va="center")
+
+    def thumb(x, y, w, h, image, gray=False):
+        sub = fig.add_axes([x / 100, y / 50, w / 100, h / 50])
+        sub.imshow(image, cmap="gray" if gray else None, vmin=0, vmax=255, aspect="auto" if gray else "equal")
+        sub.set_xticks([]); sub.set_yticks([])
+        for s in sub.spines.values():
+            s.set_linewidth(0.3)
+        return sub
+
+    def label(x, y, text, size=5.6, **kw):
+        ax.text(x, y, text, fontsize=size, ha="center", va="center", **kw)
+
+    # A: real painting and the aspects of pictorial organisation that motivate the conditions
+    panel(1, 29, "A", "Pictorial organisation", "#eef4f3")
+    a = m[aid]
+    img = Image.open(DATA / a["image_path"]).convert("RGB")
+    img.thumbnail((300, 600))
+    thumb(2.5, 6, 12, 37, np.asarray(img))
+    for k, t in enumerate(["Layering of\nnear and far", "Blank space\n(liubai)", "Brush and ink", "Colour treatment\n(ink / ink and colour)"]):
+        ax.add_patch(FancyBboxPatch((16.5, 34 - 8.5 * k), 12.5, 6, boxstyle="round,pad=0.2,rounding_size=0.6", lw=0.6, ec="#5f9e96", fc="white"))
+        label(22.75, 37 - 8.5 * k, t)
+    label(15.5, 3.6, "Real painting (benchmark training split; S2 Table)", size=5.2, color="#444444")
+
+    # B: unadapted SDXL from benchmark prompts
+    panel(33, 29, "B", "Unadapted SDXL, prompt only", "#f6eff4")
+    label(47.5, 40.5, "Inputs: text prompt only; no condition\nspecifies where masses, water and mist go", size=5.4)
+    for k, sid in enumerate(sdxl_ids):
+        thumb(34.2 + 9.2 * k, 17, 8.6, 17.2, np.asarray(Image.open(GEN / "sdxl_base" / f"{sid}__seed42.png").convert("RGB").resize((256, 256))))
+    label(47.5, 13.5, "Model outputs for three randomly\ndrawn test prompts (seed 42)", size=5.2, color="#444444")
+
+    # C: this work
+    panel(65, 34, "C", "This work", "#eef4ea")
+    chans = channel_images(DATA / c["structure_map_path"])
+    for k, (ch, name) in enumerate(zip(chans, ["line art", "layer", "blank", "salience"])):
+        thumb(66.3 + 4.3 * k, 30, 4, 8.5, np.asarray(Image.fromarray(ch).resize((96, 160))), gray=True)
+        label(68.3 + 4.3 * k, 28.6, name, size=4.6)
+    label(74.8, 41.5, "Prompt + four-channel condition map", size=5.4)
+    thumb(69.5, 9, 10, 14, np.asarray(Image.open(DATA / ref["image_path"]).convert("RGB").resize((160, 200))))
+    label(74.5, 6.8, "Style reference\n(training split)", size=5.0)
+    ax.add_patch(FancyArrowPatch((84.2, 24), (87.2, 24), arrowstyle="-|>", mutation_scale=7, lw=0.7, color="#333333"))
+    thumb(87.6, 15, 10.8, 18, np.asarray(Image.open(GEN / "ours_v8_s42" / f"{cid}__seed42.png").convert("RGB").resize((256, 256))))
+    label(93, 39, "SDXL + LoRA\n+ residual structure\nbranch + IP-Adapter", size=5.0)
+    label(93, 11.5, "Model output\n(seed 42)", size=5.0)
+    save_tiff(fig, out)
+    (OUT / "Fig1_sources.json").write_text(json.dumps({"panel_A_real_painting": aid, "panel_B_sdxl_prompts": sdxl_ids,
+                                                       "panel_C_condition_and_output": cid, "panel_C_style_reference": ref["sample_id"]},
+                                                      indent=2), encoding="utf-8")
+
+
 def s_training_curves(out: Path) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(7.5, 2.6))
     for ax, prefix in zip(axes, ["v8_cn", "lora_only"]):
@@ -303,6 +390,8 @@ def s_training_curves(out: Path) -> None:
 
 def main(args: argparse.Namespace) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
+    if "1" in args.which:
+        fig1_motivation(OUT / "Fig1.tif")
     if "2" in args.which:
         fig2_framework(OUT / "Fig2.tif")
     if "3" in args.which:

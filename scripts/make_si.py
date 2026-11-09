@@ -58,14 +58,17 @@ def s2_table(m: dict) -> None:
     wrong = df[(df.colour_correct == 0) & ~df.path.isin(lowest)]
     picks = lowest + list(wrong.sample(2, random_state=F.SAMPLING_SEED).path)
     uses += [("Fig 8", "real test painting / condition", Path(p).stem.split("__seed")[0]) for p in picks]
+    f1 = json.loads((ROOT / "outputs/revision/figures/Fig1_sources.json").read_text(encoding="utf-8"))
+    uses = ([("Fig 1", "real painting (panel A)", f1["panel_A_real_painting"])]
+            + [("Fig 1", "prompt of (panel B, SDXL output)", s) for s in f1["panel_B_sdxl_prompts"]]
+            + [("Fig 1", "condition map (panel C)", f1["panel_C_condition_and_output"]),
+               ("Fig 1", "style reference (panel C)", f1["panel_C_style_reference"])]) + uses
     rows = []
     for fig, role, sid in uses:
         r = m[sid]
         rows.append({"figure": fig, "role": role, "sample_id": sid, "split": r["split"], "source": r["source"],
                      "object_id": r["object_id"], "title": r["title"], "artist": re.sub(r"<[^>]+>", "", r["painter"] or "").strip(), "object_url": r["object_url"],
                      "image_url": r["image_url"], "licence": r["license"], "credit_line": r["extra"].get("credit_line", "")})
-    rows.append({"figure": "Fig 1", "role": "real painting (panel A)", "sample_id": "",
-                 "title": "AUTHORS: unchanged from the original submission; add its source here"})
     pd.DataFrame(rows).to_csv(OUT / "S2_Table.csv", index=False, encoding="utf-8-sig")
 
 
@@ -111,6 +114,11 @@ def run_row(name: str, d: Path) -> dict:
 
 def s4_s5_s6_tables() -> None:
     rows = [run_row(name, ROOT / d) for name, dirs in {**SPEC, **ABL}.items() for d in dirs]
+    # Channel ablations of the token adapter (v7, seed 42), reported as promised in the development protocol
+    v7_channels = {"ch_lineart_s42": "line art only", "ch_depth_s42": "layer map only", "ch_blank_s42": "blank-space mask only",
+                   "ch_saliency_s42": "salience mask only", "ch_lineart_depth_s42": "line art + layer map",
+                   "ch_no_saliency_s42": "without salience mask"}
+    rows += [run_row(f"Token adapter (seed 42), {label}", EVAL / run) for run, label in v7_channels.items()]
     rows.append(run_row("Real test paintings", EVAL / "real_test"))
     pd.DataFrame(rows).drop_duplicates("run").to_csv(OUT / "S4_Table.csv", index=False)
     tests = pd.concat([pd.read_csv(STATS / "paired_tests.csv").assign(family="main (Holm over 90 tests)"),
@@ -144,7 +152,13 @@ def s7_table(m: dict) -> None:
         pd.read_csv(F.CTRL / "structure_controllability.csv").to_excel(w, sheet_name="structure swap (Ours)", index=False)
         pd.read_csv(ROOT / "outputs/revision/controllability_lora_controlnet/structure_controllability.csv").to_excel(
             w, sheet_name="structure swap (LoRA+CN)", index=False)
+        pd.read_csv(ROOT / "outputs/revision/controllability/structure_controllability.csv").to_excel(
+            w, sheet_name="structure swap (Token adapter)", index=False)
         style.to_excel(w, sheet_name="style swap (Ours)", index=False)
+        summaries = {name: json.loads((ROOT / "outputs/revision" / d / "summary.json").read_text(encoding="utf-8"))["structure"]
+                     for name, d in [("Ours", "controllability_v8_ours"), ("LoRA+ControlNet", "controllability_lora_controlnet"),
+                                     ("Token adapter", "controllability")]}
+        pd.DataFrame(summaries).T.to_excel(w, sheet_name="structure swap summary")
 
 
 class _Sample:

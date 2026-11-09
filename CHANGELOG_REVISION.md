@@ -56,8 +56,14 @@ python scripts/style_v8.py train
 bash scripts/run_v8.sh                                 # v8: selection on val, frozen config, test phase
 python scripts/stats_v8.py --spec outputs/revision/stats_spec_v8.json --ablations outputs/revision/stats_ablation_v8.json --out-dir outputs/revision/stats_v8
 python scripts/make_tables.py
-python scripts/figures/make_revision_figures.py
+python scripts/figures/make_revision_figures.py --which 12345678S
+python scripts/artist_overlap.py                       # artists shared between splits (Methods, Limitations)
+PYTHONPATH=src python scripts/make_si.py               # supporting-information files
 ```
+`configs/revision/v8_preregistration.md` was written after the v7 results (token adapter and all
+baselines on the test split) were known; it fixed the selection of the residual branch before that
+branch was trained. The split groups paintings by the artist field as recorded in the source metadata,
+which is not normalised across sources; `scripts/artist_overlap.py` counts the resulting overlap.
 Because museum collections and their APIs change over time, re-collection will not reproduce the
 exact image set; the released manifest (Zenodo) lists the images used.
 

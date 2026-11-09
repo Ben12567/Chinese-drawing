@@ -18,7 +18,8 @@ EVAL = ROOT / "outputs/revision/eval"
 STATS = ROOT / "outputs/revision/stats_v8"
 SELECT = ROOT / "outputs/revision/v8_selection"
 CTRL = {"Ours": ROOT / "outputs/revision/controllability_v8_ours",
-        "LoRA+ControlNet": ROOT / "outputs/revision/controllability_lora_controlnet"}
+        "LoRA+ControlNet": ROOT / "outputs/revision/controllability_lora_controlnet",
+        "Token adapter": ROOT / "outputs/revision/controllability"}
 
 MAIN = [
     ("SDXL", ["sdxl_base"]),
@@ -42,7 +43,7 @@ STRUCT = [("edge_iou", "Line art"), ("blank_iou_re", "Blank space"), ("layer_acc
 METRIC_NAMES = {"clipscore": "CLIPScore", "pickscore": "PickScore", "hpsv2": "HPSv2", "lpips_diversity": "LPIPS div.",
                 "edge_iou_specific": "Line-art spec.", "blank_iou_re_specific": "Blank-space spec.",
                 "layer_acc_specific": "Layer spec.", "salience_iou_specific": "Salience spec.",
-                "style_v8_correct": "Colour-treatment acc."}
+                "style_v8_correct": "Colour correct"}
 
 
 def load(run: str) -> dict:
@@ -180,7 +181,7 @@ def selection_table() -> str:
 
 
 def controllability_table() -> str:
-    lines = ["\\begin{tabular}{lcccc}\n\\hline\n\\textbf{Method} & \\textbf{Edge IoU, given map} & \\textbf{Edge IoU, other maps} & \\textbf{Blank IoU, given map} & \\textbf{Blank IoU, other maps} \\\\\n\\hline"]
+    lines = ["\\begin{tabular}{lcccc}\n\\hline\n\\textbf{Method} & \\textbf{Line-art IoU, given map} & \\textbf{Line-art IoU, other maps} & \\textbf{Blank IoU, given map} & \\textbf{Blank IoU, other maps} \\\\\n\\hline"]
     for name, d in CTRL.items():
         p = d / "summary.json"
         if not p.exists():
