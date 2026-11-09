@@ -47,17 +47,13 @@ def s2_table(m: dict) -> None:
     rows5 = ctrl[ctrl.prompt_sample == ctrl.prompt_sample.iloc[0]].iloc[:4]
     uses += [("Fig 5", "prompt and style reference of", rows5.prompt_sample.iloc[0])]
     uses += [("Fig 5", "condition map", s) for s in rows5.structure_sample]
-    style = pd.read_csv(F.CTRL / "style_controllability.csv")
-    rows6 = style[style.prompt_sample == style.prompt_sample.iloc[0]]
-    uses += [("Fig 6", "prompt and condition of", rows6.prompt_sample.iloc[0])]
-    uses += [("Fig 6", "style reference", s) for s in rows6.reference_sample]
-    uses += [("Fig 7", "real test painting / condition", s) for s in F.pick_random_tests(3)]
+    uses += [("Fig 6", "real test painting / condition", s) for s in F.pick_random_tests(3)]
     df = F.per_image("ours_v8_s42")
     df = df[df.path.str.contains("seed42")]
     lowest = list(df.nsmallest(2, "edge_iou").path)
     wrong = df[(df.colour_correct == 0) & ~df.path.isin(lowest)]
     picks = lowest + list(wrong.sample(2, random_state=F.SAMPLING_SEED).path)
-    uses += [("Fig 8", "real test painting / condition", Path(p).stem.split("__seed")[0]) for p in picks]
+    uses += [("S5 Fig", "real test painting / condition", Path(p).stem.split("__seed")[0]) for p in picks]
     f1 = json.loads((ROOT / "outputs/revision/figures/Fig1_sources.json").read_text(encoding="utf-8"))
     uses = ([("Fig 1", "real painting (panel A)", f1["panel_A_real_painting"])]
             + [("Fig 1", "prompt of (panel B, SDXL output)", s) for s in f1["panel_B_sdxl_prompts"]]
@@ -278,6 +274,8 @@ def main() -> None:
     s2_fig()
     s3_fig(m)
     shutil.copy(ROOT / "outputs/revision/figures/S4_Fig_training_curves.tif", OUT / "S4_Fig.tif")
+    F.fig8_failures(OUT / "S5_Fig.tif")  # failure cases (Reviewer 1, minor 7)
+    (OUT / "S5_Fig.png").unlink(missing_ok=True)
     appendices(m)
     for p in sorted(OUT.iterdir()):
         print(p.name, p.stat().st_size)

@@ -402,18 +402,18 @@ def main(args: argparse.Namespace) -> None:
                                              ("Token adapter", "ours_s42"), ("Ours", "ours_v8_s42")])
     if "5" in args.which:
         fig5_structure(OUT / "Fig5.tif")
+    # Final numbering: Fig 1 is the PowerPoint figure (make_ppt_figures.py, edited by the authors); the style-swap
+    # figure was dropped (numbers in Results and S7 Table); the failure cases are S5 Fig (make_si.py).
     if "6" in args.which:
-        fig6_style(OUT / "Fig6.tif")
-    if "7" in args.which:
-        fig4_qualitative(OUT / "Fig7.tif", [("w/o structure branch\n(LoRA+IP-Adapter)", "lora_ip_adapter_s42"), ("w/o style ref.", "ours_v8_no_style_s42"),
+        fig4_qualitative(OUT / "Fig6.tif", [("w/o structure branch\n(LoRA+IP-Adapter)", "lora_ip_adapter_s42"), ("w/o style ref.", "ours_v8_no_style_s42"),
                                              ("Line art only", "ours_v8_lineart_s42"), ("Full model", "ours_v8_s42")], n=3)
-    if "8" in args.which:
-        fig8_failures(OUT / "Fig8.tif")
+    if "w" in args.which:
+        fig6_style(OUT / "style_swap.tif")
     if "S" in args.which:
         s_training_curves(OUT / "S4_Fig_training_curves.tif")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--which", default="345678S")
+    parser.add_argument("--which", default="23456S")
     main(parser.parse_args())
