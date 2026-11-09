@@ -56,7 +56,9 @@ python scripts/style_v8.py train
 bash scripts/run_v8.sh                                 # v8: selection on val, frozen config, test phase
 python scripts/stats_v8.py --spec outputs/revision/stats_spec_v8.json --ablations outputs/revision/stats_ablation_v8.json --out-dir outputs/revision/stats_v8
 python scripts/make_tables.py
-python scripts/figures/make_revision_figures.py --which 12345678S
+python scripts/figures/make_revision_figures.py --which 12345678S   # figure sources, supplementary figures
+python scripts/figures/make_ppt_figures.py             # Figs 1-8 as editable PowerPoint files (style of the original submission)
+powershell -File scripts/figures/export_ppt_figures.ps1 # render the PowerPoint figures to PNG (then TIFF, 300 dpi)
 python scripts/artist_overlap.py                       # artists shared between splits (Methods, Limitations)
 PYTHONPATH=src python scripts/make_si.py               # supporting-information files
 ```

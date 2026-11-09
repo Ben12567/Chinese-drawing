@@ -61,8 +61,7 @@ def s2_table(m: dict) -> None:
     f1 = json.loads((ROOT / "outputs/revision/figures/Fig1_sources.json").read_text(encoding="utf-8"))
     uses = ([("Fig 1", "real painting (panel A)", f1["panel_A_real_painting"])]
             + [("Fig 1", "prompt of (panel B, SDXL output)", s) for s in f1["panel_B_sdxl_prompts"]]
-            + [("Fig 1", "condition map (panel C)", f1["panel_C_condition_and_output"]),
-               ("Fig 1", "style reference (panel C)", f1["panel_C_style_reference"])]) + uses
+            + [("Fig 1", "prompt and condition of the output (panel C)", f1["panel_C_condition_and_output"])]) + uses
     rows = []
     for fig, role, sid in uses:
         r = m[sid]
